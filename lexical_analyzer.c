@@ -759,7 +759,7 @@ int get_next_token()
                 }
                 else
                 {
-                    ++p_crt_ch;
+                    //++p_crt_ch;
                     state = DIV;
                 }
                 break;
@@ -846,7 +846,7 @@ int get_next_token()
                 }
                 else
                 {
-                    ++p_crt_ch;
+                    //++p_crt_ch;
                     state = NOT;
                 }
                 break;
@@ -859,7 +859,7 @@ int get_next_token()
                 }
                 else
                 {
-                    ++p_crt_ch;
+                    //++p_crt_ch;
                     state = ASSIGN;
                 }
                 break;
@@ -872,7 +872,7 @@ int get_next_token()
                 }
                 else
                 {
-                    ++p_crt_ch;
+                    //++p_crt_ch;
                     state = LESS;
                 }
                 break;
@@ -885,7 +885,7 @@ int get_next_token()
                 }
                 else
                 {
-                    ++p_crt_ch;
+                    //++p_crt_ch;
                     state = GREATER;
                 }
                 break;
@@ -979,6 +979,10 @@ int get_next_token()
 
             case MUL:
                 tk = add_token(MUL);
+                return tk->code;
+
+            case DIV:
+                tk = add_token(DIV);
                 return tk->code;
 
             case AND:
