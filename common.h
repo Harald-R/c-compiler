@@ -56,6 +56,8 @@ typedef struct _token {
 
 token *tokens;
 
+char *id_to_str(int id);
+
 void err(const char *fmt, ...);
 void tkerr(const token *tk, const char *fmt, ...);
 

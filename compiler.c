@@ -1,11 +1,12 @@
-#include "lexical_analyzer.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
+#include "lexical_analyzer.h"
+#include "syntax_analyzer.h"
 
 int main(int argc, char *argv[])
 {
-    const char *file_path = "tests/8.c";
+    const char *file_path = "tests/9.c";
     if (argc > 1) {
         file_path = argv[1];
     }
@@ -37,12 +38,21 @@ int main(int argc, char *argv[])
     inbuf[n] = '\0';
     fclose(f);
 
+    // Lexical analysis
     p_crt_ch = inbuf;
     while(get_next_token() != END);
 
-    print_atoms(tokens);
+    // print_atoms(tokens);
 
     free(inbuf);
+
+    // Syntax analysis
+    current_token = tokens;
+
+    if (analyze_syntax())
+        printf("Syntax OK\n");
+    else
+        printf("Syntax ERROR\n");
 
     return 0;
 }

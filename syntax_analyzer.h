@@ -3,6 +3,12 @@
 
 #include "common.h"
 
+#if 1
+#define DEBUG_PRINTF(...) printf(__VA_ARGS__);
+#else
+#define DEBUG_PRINTF(...)
+#endif
+
 #define ERR_MISSING_STMT(x) "missing " #x " statement"
 #define ERR_MISSING_LPAR(x) "missing ( after " #x
 #define ERR_MISSING_RPAR "missing )"
@@ -10,11 +16,35 @@
 
 token *current_token;
 
+int analyze_syntax();
+
 int consume(int code);
 
 int unit();
+
+int declStruct();
+int declFunc();
+int declVar();
+
+int typeBase();
+int typeName();
+int arrayDecl();
+int funcArg();
+
+int stm();
+int stmCompound();
+
 int expr();
-int stmt();
-int rule_while();
+int exprAssign();
+int exprOr();
+int exprAnd();
+int exprEq();
+int exprRel();
+int exprAdd();
+int exprMul();
+int exprCast();
+int exprUnary();
+int exprPostfix();
+int exprPrimary();
 
 #endif
