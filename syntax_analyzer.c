@@ -21,8 +21,10 @@ int consume(int code)
 int unit()
 {
     while (declStruct() || declFunc() || declVar());
-    if (consume(END))
+    if (consume(END)) {
         return 1;
+    }
+    else tkerr(current_token, "invalid expression");
 
     return 0;
 }
@@ -40,9 +42,12 @@ int declStruct()
                     if (consume(SEMICOLON)) {
                         return 1;
                     }
+                    else tkerr(current_token, "missing semicolon");
                 }
+                else tkerr(current_token, "missing }");
             }
         }
+        else tkerr(current_token, "missing id after struct");
     }
 
     current_token = start_token;
@@ -53,6 +58,7 @@ int declFunc()
 {
     token *start_token = current_token;
     int is_decl_func = 0;
+    int has_void_return_type = 0;
 
     if (typeBase()) {
         if (consume(MUL)) {}
@@ -60,6 +66,7 @@ int declFunc()
 
     } else if (consume(VOID)) {
         is_decl_func = 1;
+        has_void_return_type = 1;
     }
 
     if (is_decl_func) {
@@ -69,6 +76,7 @@ int declFunc()
                     while (1) {
                         if (consume(COMMA)) {
                             if (funcArg()) {}
+                            else tkerr(current_token, "missing argument after comma");
                         }
                         else break;
                     }
@@ -78,8 +86,13 @@ int declFunc()
                     if (stmCompound()) {
                         return 1;
                     }
+                    else tkerr(current_token, "missing function statement");
                 }
+                else tkerr(current_token, "expected )");
             }
+        }
+        else if (has_void_return_type) {
+            tkerr(current_token, "expected identifier");
         }
     }
 
@@ -125,9 +138,14 @@ int typeBase()
 {
     token *start_token = current_token;
 
-    if (consume(INT) || consume(DOUBLE) || consume(CHAR) ||
-            (consume (STRUCT) && consume(ID))) {
+    if (consume(INT) || consume(DOUBLE) || consume(CHAR)) {
         return 1;
+    }
+    else if (consume(STRUCT)) {
+        if (consume(ID)) {
+            return 1;
+        }
+        else tkerr(current_token, "missing id after struct");
     }
 
     current_token = start_token;
@@ -159,6 +177,7 @@ int arrayDecl()
         if (consume(RBRACKET)) {
             return 1;
         }
+        else tkerr(current_token, "missing ]");
     }
 
     current_token = start_token;
@@ -175,6 +194,7 @@ int funcArg()
 
             return 1;
         }
+        else tkerr(current_token, "missing argument identifier");
     }
 
     current_token = start_token;
@@ -197,9 +217,13 @@ int stm()
 
                         return 1;
                     }
+                    else tkerr(current_token, "missing if statement");
                 }
+                else tkerr(current_token, "missing )");
             }
+            else tkerr(current_token, "invalid expression after (");
         }
+        else tkerr(current_token, "missing ( after if");
     }
     else if (consume(WHILE)) {
         if (consume(LPAR)) {
@@ -208,9 +232,13 @@ int stm()
                     if (stm()) {
                         return 1;
                     }
+                    else tkerr(current_token, "missing while statement");
                 }
+                else tkerr(current_token, "missing )");
             }
+            else tkerr(current_token, "invalid expression after (");
         }
+        else tkerr(current_token, "missing ( after while");
     }
     else if (consume(FOR)) {
         if (consume(LPAR)) {
@@ -223,26 +251,34 @@ int stm()
                         if (stm()) {
                             return 1;
                         }
+                        else tkerr(current_token, "missing for statement");
                     }
+                    else tkerr(current_token, "missing )");
                 }
+                else tkerr(current_token, "missing semicolon");
             }
+            else tkerr(current_token, "missing semicolon");
         }
+        else tkerr(current_token, "missing ( after for");
     }
     else if (consume(BREAK)) {
         if (consume(SEMICOLON)) {
             return 1;
         }
+        else tkerr(current_token, "missing semicolon");
     }
     else if (consume(RETURN)) {
         if (expr()) { }
         if (consume(SEMICOLON)) {
             return 1;
         }
+        else tkerr(current_token, "missing semicolon");
     }
     else if (expr()) {
         if (consume(SEMICOLON)) {
             return 1;
         }
+        else tkerr(current_token, "expected semicolon");
     }
     else if (consume(SEMICOLON)) {
         return 1;
@@ -262,6 +298,7 @@ int stmCompound()
         if (consume(RACC)) {
             return 1;
         }
+        else tkerr(current_token, "expected }");
     }
 
     current_token = start_token;
@@ -289,6 +326,7 @@ int exprAssign()
             if (exprAssign()) {
                 return 1;
             }
+            else tkerr(current_token, "missing value after = operator");
         }
     }
 
@@ -311,6 +349,7 @@ int exprOr2()
                 return 1;
             }
         }
+        else tkerr(current_token, "missing expression after ||");
     }
 
     current_token = start_token;
@@ -341,6 +380,7 @@ int exprAnd2()
                 return 1;
             }
         }
+        else tkerr(current_token, "missing expression after &&");
     }
 
     current_token = start_token;
@@ -371,6 +411,7 @@ int exprEq2()
                 return 1;
             }
         }
+        else tkerr(current_token, "missing expression after equality comparison");
     }
 
     current_token = start_token;
@@ -401,6 +442,7 @@ int exprRel2()
                 return 1;
             }
         }
+        else tkerr(current_token, "missing expression after comparison");
     }
 
     current_token = start_token;
@@ -431,6 +473,7 @@ int exprAdd2()
                 return 1;
             }
         }
+        else tkerr(current_token, "expected right operand");
     }
 
     current_token = start_token;
@@ -461,6 +504,7 @@ int exprMul2()
                 return 1;
             }
         }
+        else tkerr(current_token, "expected right operand");
     }
 
     current_token = start_token;
@@ -491,8 +535,11 @@ int exprCast()
                 if (exprCast()) {
                     return 1;
                 }
+                else tkerr(current_token, "missing expression to cast");
             }
+            else tkerr(current_token, "missing )");
         }
+        else tkerr(current_token, "expected type name after (");
     }
     
     if (exprUnary()) {
@@ -511,6 +558,7 @@ int exprUnary()
         if (exprUnary()) {
             return 1;
         }
+        else tkerr(current_token, "invalid expression");
     }
  
     if (exprPostfix()) {
@@ -532,7 +580,9 @@ int exprPostfix2()
                     return 1;
                 }
             }
+            else tkerr(current_token, "missing ]");
         }
+        else tkerr(current_token, "missing expression after [");
     }
     if (consume(DOT)) {
         if (consume(ID)) {
@@ -540,6 +590,7 @@ int exprPostfix2()
                 return 1;
             }
         }
+        else tkerr(current_token, "missing identifier after .");
     }
 
     current_token = start_token;
@@ -570,6 +621,7 @@ int exprPrimary()
                 while (1) {
                     if (consume(COMMA)) {
                         if (expr()) { }
+                        else tkerr(current_token, "missing expression after ,");
                     } else break;
                 }
             }
@@ -594,28 +646,4 @@ int exprPrimary()
     return 0;
 }
 
-/*
-int rule_while()
-{
-    token *start_token = current_token;
 
-    if (consume(WHILE)) {
-        if (consume(LPAR)) {
-            if (expr()) {
-                if (consume(RPAR)) {
-                    if (stmt()) {
-                        return 1;
-                    }
-                    else tkerr(current_token, ERR_MISSING_STMT("while"));
-                }
-                else tkerr(current_token, ERR_MISSING_RPAR);
-            }
-            else tkerr(current_token, ERR_INVALID_EXPR);
-        }
-        else tkerr(current_token, ERR_MISSING_LPAR("while"));
-    }
-
-    current_token = start_token;
-    return 0;
-}
-*/
