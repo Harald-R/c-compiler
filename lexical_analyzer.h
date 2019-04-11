@@ -3,8 +3,6 @@
 
 #include "common.h"
 
-#define SAFEALLOC(var,type) if((var = (type*)malloc(sizeof(type))) == NULL) err("Not enough memory");
-
 token *last_token;
 char *p_crt_ch;
 extern int line;

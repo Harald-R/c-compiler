@@ -1,6 +1,8 @@
 #ifndef _H_COMMON
 #define _H_COMMON
 
+#define SAFEALLOC(var,type) if((var = (type*)malloc(sizeof(type))) == NULL) err("Not enough memory");
+
 enum {ID = 100,
       BREAK,
       CHAR,
@@ -54,7 +56,8 @@ typedef struct _token {
     struct _token *next;
 } token;
 
-token *tokens;
+extern token *tokens;
+extern token *current_token;
 
 char *id_to_str(int id);
 

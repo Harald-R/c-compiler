@@ -3,6 +3,7 @@
 #include <sys/stat.h>
 #include "lexical_analyzer.h"
 #include "syntax_analyzer.h"
+#include "domain_analyzer.h"
 
 int main(int argc, char *argv[])
 {
@@ -49,10 +50,16 @@ int main(int argc, char *argv[])
     // Syntax analysis
     current_token = tokens;
 
-    if (analyze_syntax())
+    if (analyze_syntax()) {
         printf("Syntax OK\n");
-    else
+    } else {
         printf("Syntax ERROR\n");
+        return 1;
+    }
+
+    // Print symbol table
+    printf("Symbol table:\n");
+    print_symbol_table(&symbols);
 
     return 0;
 }

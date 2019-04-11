@@ -3,7 +3,7 @@
 
 #include "common.h"
 
-#if 1
+#if 0
 #define DEBUG_PRINTF(...) printf(__VA_ARGS__);
 #else
 #define DEBUG_PRINTF(...)
@@ -13,8 +13,6 @@
 #define ERR_MISSING_LPAR(x) "missing ( after " #x
 #define ERR_MISSING_RPAR "missing )"
 #define ERR_INVALID_EXPR "invalid expression after )"
-
-token *current_token;
 
 int analyze_syntax();
 

@@ -3,6 +3,9 @@
 #include <stdarg.h>
 #include "common.h"
 
+token *tokens;
+token *current_token;
+
 char *id_to_str(int id)
 {
     char *code;

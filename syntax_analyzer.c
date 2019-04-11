@@ -1,5 +1,8 @@
 #include <stdio.h>
 #include "syntax_analyzer.h"
+#include "domain_analyzer.h"
+
+token *consumed_token;
 
 int analyze_syntax()
 {
@@ -10,6 +13,7 @@ int consume(int code)
 {
     DEBUG_PRINTF("consume(%s)? => ", id_to_str(code));
     if (current_token->code == code) {
+        consumed_token = current_token;
         current_token = current_token->next;
         DEBUG_PRINTF("OK\n");
         return 1;
@@ -32,14 +36,25 @@ int unit()
 int declStruct()
 {
     token *start_token = current_token;
+    token *symbol_token;
 
     if (consume(STRUCT)) {
         if (consume(ID)) {
+            symbol_token = consumed_token;
+
             if (consume(LACC)) {
+                // Add struct symbol to the symbol table
+                if (find_symbol(&symbols, symbol_token->text)) {
+                    tkerr(current_token, "symbol redefinition: %s", symbol_token->text);
+                }
+                current_struct = add_symbol(&symbols, symbol_token->text, CLS_STRUCT);
+                init_symbols(&current_struct->members);
+
                 while (declVar());
 
                 if (consume(RACC)) {
                     if (consume(SEMICOLON)) {
+                        current_struct = NULL;
                         return 1;
                     }
                     else tkerr(current_token, "missing semicolon");
@@ -57,21 +72,41 @@ int declStruct()
 int declFunc()
 {
     token *start_token = current_token;
+    token *symbol_token;
+    type_t t;
     int is_decl_func = 0;
     int has_void_return_type = 0;
 
-    if (typeBase()) {
-        if (consume(MUL)) {}
+    if (typeBase(&t)) {
+        if (consume(MUL)) {
+            t.num_elem = 0;
+        } else {
+            t.num_elem = -1;
+        }
+
         is_decl_func = 1;
 
     } else if (consume(VOID)) {
         is_decl_func = 1;
         has_void_return_type = 1;
+
+        t.type_base = TB_VOID;
     }
 
     if (is_decl_func) {
         if (consume(ID)) {
+            symbol_token = consumed_token;
+
             if (consume(LPAR)) {
+                // Add function name in the symbol table 
+                if (find_symbol(&symbols, symbol_token->text)) {
+                    tkerr(current_token, "symbol redefinition: %s", symbol_token->text);
+                }
+                current_func = add_symbol(&symbols, symbol_token->text, CLS_FUNC);
+                init_symbols(&current_func->args);
+                current_func->type = t;
+                ++current_depth;
+
                 if (funcArg()) {
                     while (1) {
                         if (consume(COMMA)) {
@@ -83,7 +118,12 @@ int declFunc()
                 }
 
                 if (consume(RPAR)) {
+                    --current_depth;
+
                     if (stmCompound()) {
+                        delete_symbols_after(&symbols, current_func);
+                        current_func = NULL;
+
                         return 1;
                     }
                     else tkerr(current_token, "missing function statement");
@@ -103,18 +143,32 @@ int declFunc()
 int declVar()
 {
     token *start_token = current_token;
+    token *symbol_token;
+    type_t t;
     int is_decl_var = 0;
 
-    if (typeBase()) {
+    if (typeBase(&t)) {
         if (consume(ID)) {
-            if (arrayDecl())
+            symbol_token = consumed_token;
+
+            if (arrayDecl(&t)) {
                 is_decl_var = 1;
+                t.num_elem = -1;
+            }
+
+            add_var(symbol_token, &t);
 
             while (1) {
                 if (consume(COMMA)) {
                     is_decl_var = 1;
                     if (consume(ID)) {
-                        if (arrayDecl()) {}
+                        symbol_token = consumed_token;
+
+                        if (arrayDecl(&t)) {
+                            t.num_elem = -1;
+                        }
+
+                        add_var(symbol_token, &t);
                     }
                     else tkerr(current_token, "missing variable name after ,");
                 } else {
@@ -134,15 +188,32 @@ int declVar()
     return 0;
 }
 
-int typeBase()
+int typeBase(type_t *ret)
 {
     token *start_token = current_token;
 
-    if (consume(INT) || consume(DOUBLE) || consume(CHAR)) {
+    if (consume(INT)) {
+        ret->type_base = TB_INT;
         return 1;
-    }
-    else if (consume(STRUCT)) {
+    } else if (consume(DOUBLE)) {
+        ret->type_base = TB_DOUBLE;
+        return 1;
+    } else if (consume(CHAR)) {
+        ret->type_base = TB_CHAR;
+        return 1;
+    } else if (consume(STRUCT)) {
         if (consume(ID)) {
+            token *symbol_token = consumed_token;
+            
+            symbol_t *s = find_symbol(&symbols, symbol_token->text);
+            if (s == NULL)
+                tkerr(current_token, "undefined symbol: %s", symbol_token->text);
+            if (s->cls != CLS_STRUCT)
+                tkerr(current_token, "%s is not a struct", symbol_token->text);
+
+            ret->type_base = TB_STRUCT;
+            ret->s = s;
+
             return 1;
         }
         else tkerr(current_token, "missing id after struct");
@@ -152,12 +223,14 @@ int typeBase()
     return 0;
 }
 
-int typeName()
+int typeName(type_t *ret)
 {
     token *start_token = current_token;
 
-    if (typeBase()) {
-        if (arrayDecl()) { }
+    if (typeBase(ret)) {
+        if (arrayDecl(ret)) {
+            ret->num_elem = -1;
+        }
 
         return 1;
     }
@@ -167,11 +240,12 @@ int typeName()
 
 }
 
-int arrayDecl()
+int arrayDecl(type_t *ret)
 {
     token *start_token = current_token;
 
     if (consume(LBRACKET)) {
+        ret->num_elem = 0;
         if (expr()) { }
 
         if (consume(RBRACKET)) {
@@ -187,10 +261,24 @@ int arrayDecl()
 int funcArg()
 {
     token *start_token = current_token;
+    token *symbol_token;
+    type_t t;
 
-    if (typeBase()) {
-        if (consume(ID)) { 
-            if (arrayDecl()) {}
+    if (typeBase(&t)) {
+        if (consume(ID)) {
+            symbol_token = consumed_token;
+
+            if (arrayDecl(&t)) {
+                t.num_elem = -1;
+            }
+
+            symbol_t *s = add_symbol(&symbols, symbol_token->text, CLS_VAR);
+            s->mem = MEM_ARG;
+            s->type = t;
+            
+            s = add_symbol(&current_func->args, symbol_token->text, CLS_VAR);
+            s->mem = MEM_ARG;
+            s->type = t;
 
             return 1;
         }
@@ -291,11 +379,16 @@ int stm()
 int stmCompound()
 {
     token *start_token = current_token;
+    symbol_t *start = symbols.end[-1];
 
     if (consume(LACC)) {
+        ++current_depth;
         while (declVar() || stm());
 
         if (consume(RACC)) {
+            --current_depth;
+            delete_symbols_after(&symbols, start);
+
             return 1;
         }
         else tkerr(current_token, "expected }");
@@ -528,9 +621,10 @@ int exprMul()
 int exprCast()
 {
     token *start_token = current_token;
+    type_t t;
 
     if (consume(LPAR)) {
-        if (typeName()) {
+        if (typeName(&t)) {
             if (consume(RPAR)) {
                 if (exprCast()) {
                     return 1;
