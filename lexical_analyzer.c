@@ -6,6 +6,15 @@
 #include "lexical_analyzer.h"
 
 int line = 1;
+char *p_crt_ch;
+token_t *last_token;
+
+void get_atoms(char *buffer)
+{
+    p_crt_ch = buffer;
+
+    while(get_next_token() != END);
+}
 
 token_t *add_token(int code)
 {
@@ -260,7 +269,6 @@ int get_next_token()
                 }
                 else if (ch == '\0')
                 {
-                    ++p_crt_ch;
                     state = END;
                 }
                 else

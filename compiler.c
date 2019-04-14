@@ -40,14 +40,13 @@ int main(int argc, char *argv[])
     fclose(f);
 
     // Lexical analysis
-    p_crt_ch = inbuf;
-    while(get_next_token() != END);
-
+    get_atoms(inbuf);
     // print_atoms(tokens);
 
+    // Free input buffer
     free(inbuf);
 
-    // Syntax analysis
+    // Analyze syntax and generate symbol table
     current_token = tokens;
 
     if (analyze_syntax()) {
