@@ -7,10 +7,10 @@
 
 int line = 1;
 
-token *add_token(int code)
+token_t *add_token(int code)
 {
-    token *tk;
-    SAFEALLOC(tk,token)
+    token_t *tk;
+    SAFEALLOC(tk, token_t)
 
     tk->code = code;
     tk->line = line;
@@ -47,9 +47,9 @@ char *create_string(const char *p_start_ch, char *p_crt_ch)
     return string;
 }
 
-void print_atoms(token *tokens)
+void print_atoms(token_t *tokens)
 {
-    token *token = tokens;
+    token_t *token = tokens;
 
     while (token != NULL) {
         if (token->code == ID || token->code == CT_STRING || token->code == CT_CHAR) {
@@ -114,7 +114,7 @@ int get_next_token()
     char ch;
     char *str;
     const char *p_start_ch;
-    token *tk;
+    token_t *tk;
 
     while (1) {
         ch = *p_crt_ch;

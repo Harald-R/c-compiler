@@ -3,8 +3,8 @@
 #include <stdarg.h>
 #include "common.h"
 
-token *tokens;
-token *current_token;
+token_t *tokens;
+token_t *current_token;
 
 char *id_to_str(int id)
 {
@@ -152,7 +152,7 @@ void err(const char *fmt, ...)
     exit(1);
 }
 
-void tkerr(const token *tk, const char *fmt, ...)
+void tkerr(const token_t *tk, const char *fmt, ...)
 {
     va_list va;
     va_start(va, fmt);

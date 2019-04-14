@@ -54,14 +54,14 @@ typedef struct _token {
     };  
     int line;
     struct _token *next;
-} token;
+} token_t;
 
-extern token *tokens;
-extern token *current_token;
+extern token_t *tokens;
+extern token_t *current_token;
 
 char *id_to_str(int id);
 
 void err(const char *fmt, ...);
-void tkerr(const token *tk, const char *fmt, ...);
+void tkerr(const token_t *tk, const char *fmt, ...);
 
 #endif

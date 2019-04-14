@@ -67,7 +67,7 @@ void init_symbols(symbols_t *symbols);
 symbol_t *add_symbol(symbols_t *symbols, const char *name, int cls);
 symbol_t *find_symbol(symbols_t *symbols, const char *name);
 
-void add_var(token *token_name, type_t *type);
+void add_var(token_t *token_name, type_t *type);
 void delete_symbols_after(symbols_t *symbols, symbol_t *start);
 
 void print_symbol_table();

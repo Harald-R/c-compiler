@@ -59,7 +59,7 @@ symbol_t *find_symbol(symbols_t *symbols, const char *name)
     return NULL;
 }
 
-void add_var(token *token, type_t *type)
+void add_var(token_t *token, type_t *type)
 {
     symbol_t *s;
 

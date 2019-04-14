@@ -2,7 +2,7 @@
 #include "syntax_analyzer.h"
 #include "symbol_table.h"
 
-token *consumed_token;
+token_t *consumed_token;
 
 int analyze_syntax()
 {
@@ -35,8 +35,8 @@ int unit()
 
 int declStruct()
 {
-    token *start_token = current_token;
-    token *symbol_token;
+    token_t *start_token = current_token;
+    token_t *symbol_token;
 
     if (consume(STRUCT)) {
         if (consume(ID)) {
@@ -71,8 +71,8 @@ int declStruct()
 
 int declFunc()
 {
-    token *start_token = current_token;
-    token *symbol_token;
+    token_t *start_token = current_token;
+    token_t *symbol_token;
     type_t t;
     int is_decl_func = 0;
     int has_void_return_type = 0;
@@ -142,8 +142,8 @@ int declFunc()
 
 int declVar()
 {
-    token *start_token = current_token;
-    token *symbol_token;
+    token_t *start_token = current_token;
+    token_t *symbol_token;
     type_t t;
     int is_decl_var = 0;
 
@@ -190,7 +190,7 @@ int declVar()
 
 int typeBase(type_t *ret)
 {
-    token *start_token = current_token;
+    token_t *start_token = current_token;
 
     if (consume(INT)) {
         ret->type_base = TB_INT;
@@ -203,7 +203,7 @@ int typeBase(type_t *ret)
         return 1;
     } else if (consume(STRUCT)) {
         if (consume(ID)) {
-            token *symbol_token = consumed_token;
+            token_t *symbol_token = consumed_token;
             
             symbol_t *s = find_symbol(&symbols, symbol_token->text);
             if (s == NULL)
@@ -225,7 +225,7 @@ int typeBase(type_t *ret)
 
 int typeName(type_t *ret)
 {
-    token *start_token = current_token;
+    token_t *start_token = current_token;
 
     if (typeBase(ret)) {
         if (arrayDecl(ret)) {
@@ -242,7 +242,7 @@ int typeName(type_t *ret)
 
 int arrayDecl(type_t *ret)
 {
-    token *start_token = current_token;
+    token_t *start_token = current_token;
 
     if (consume(LBRACKET)) {
         ret->num_elem = 0;
@@ -260,8 +260,8 @@ int arrayDecl(type_t *ret)
 
 int funcArg()
 {
-    token *start_token = current_token;
-    token *symbol_token;
+    token_t *start_token = current_token;
+    token_t *symbol_token;
     type_t t;
 
     if (typeBase(&t)) {
@@ -291,7 +291,7 @@ int funcArg()
 
 int stm()
 {
-    token *start_token = current_token;
+    token_t *start_token = current_token;
 
     if (stmCompound()) return 1;
     else if (consume(IF)) {
@@ -378,7 +378,7 @@ int stm()
 
 int stmCompound()
 {
-    token *start_token = current_token;
+    token_t *start_token = current_token;
     symbol_t *start = symbols.end[-1];
 
     if (consume(LACC)) {
@@ -400,7 +400,7 @@ int stmCompound()
 
 int expr()
 {
-    token *start_token = current_token;
+    token_t *start_token = current_token;
 
     if (exprAssign()) {
         return 1;
@@ -412,7 +412,7 @@ int expr()
 
 int exprAssign()
 {
-    token *start_token = current_token;
+    token_t *start_token = current_token;
 
     if (exprUnary()) {
         if (consume(ASSIGN)) {
@@ -434,7 +434,7 @@ int exprAssign()
 
 int exprOr2()
 {
-    token *start_token = current_token;
+    token_t *start_token = current_token;
 
     if (consume(OR)) {
         if (exprAnd()) {
@@ -451,7 +451,7 @@ int exprOr2()
 
 int exprOr()
 {
-    token *start_token = current_token;
+    token_t *start_token = current_token;
 
     if (exprAnd()) {
         if (exprOr2()) {
@@ -465,7 +465,7 @@ int exprOr()
 
 int exprAnd2()
 {
-    token *start_token = current_token;
+    token_t *start_token = current_token;
 
     if (consume(AND)) {
         if (exprEq()) {
@@ -482,7 +482,7 @@ int exprAnd2()
 
 int exprAnd()
 {
-    token *start_token = current_token;
+    token_t *start_token = current_token;
 
     if (exprEq()) {
         if (exprAnd2()) {
@@ -496,7 +496,7 @@ int exprAnd()
 
 int exprEq2()
 {
-    token *start_token = current_token;
+    token_t *start_token = current_token;
 
     if (consume(EQUAL) || consume(NOTEQ)) {
         if (exprRel()) {
@@ -513,7 +513,7 @@ int exprEq2()
 
 int exprEq()
 {
-    token *start_token = current_token;
+    token_t *start_token = current_token;
 
     if (exprRel()) {
         if (exprEq2()) {
@@ -527,7 +527,7 @@ int exprEq()
 
 int exprRel2()
 {
-    token *start_token = current_token;
+    token_t *start_token = current_token;
 
     if (consume(LESS) || consume(LESSEQ) || consume(GREATER) || consume(GREATEREQ)) {
         if (exprAdd()) {
@@ -544,7 +544,7 @@ int exprRel2()
 
 int exprRel()
 {
-    token *start_token = current_token;
+    token_t *start_token = current_token;
 
     if (exprAdd()) {
         if (exprRel2()) {
@@ -558,7 +558,7 @@ int exprRel()
 
 int exprAdd2()
 {
-    token *start_token = current_token;
+    token_t *start_token = current_token;
 
     if (consume(ADD) || consume(SUB)) {
         if (exprMul()) {
@@ -575,7 +575,7 @@ int exprAdd2()
 
 int exprAdd()
 {
-    token *start_token = current_token;
+    token_t *start_token = current_token;
 
     if (exprMul()) {
         if (exprAdd2()) {
@@ -589,7 +589,7 @@ int exprAdd()
 
 int exprMul2()
 {
-    token *start_token = current_token;
+    token_t *start_token = current_token;
 
     if (consume(MUL) || consume(DIV)) {
         if (exprCast()) {
@@ -606,7 +606,7 @@ int exprMul2()
 
 int exprMul()
 {
-    token *start_token = current_token;
+    token_t *start_token = current_token;
 
     if (exprCast()) {
         if (exprMul2()) {
@@ -620,7 +620,7 @@ int exprMul()
 
 int exprCast()
 {
-    token *start_token = current_token;
+    token_t *start_token = current_token;
     type_t t;
 
     if (consume(LPAR)) {
@@ -646,7 +646,7 @@ int exprCast()
 
 int exprUnary()
 {
-    token *start_token = current_token;
+    token_t *start_token = current_token;
 
     if (consume(SUB) || consume(NOT)) {
         if (exprUnary()) {
@@ -665,7 +665,7 @@ int exprUnary()
 
 int exprPostfix2()
 {
-    token *start_token = current_token;
+    token_t *start_token = current_token;
 
     if (consume(LBRACKET)) {
         if (expr()) {
@@ -693,7 +693,7 @@ int exprPostfix2()
 
 int exprPostfix()
 {
-    token *start_token = current_token;
+    token_t *start_token = current_token;
 
     if (exprPrimary()) {
         if (exprPostfix2()) {
@@ -707,7 +707,7 @@ int exprPostfix()
 
 int exprPrimary()
 {
-    token *start_token = current_token;
+    token_t *start_token = current_token;
 
     if (consume(ID)) {
         if (consume(LPAR)) {
