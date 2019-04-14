@@ -79,10 +79,8 @@ void escape_char(char *str)
              str[i] == 'v' || str[i] == '0') && 
              str[i-1] == '\\')
         {
-            strcpy(str+i-1, str+i);
-            // TODO
-            //size_t len_right = strlen(str+i);
-            //memmove(str+i-1, str+i, len_right);
+            size_t len_right = strlen(str+i) + 1;
+            memmove(str+i-1, str+i, len_right);
 
             if (str[i-1] == 'a') str[i-1] = '\a';
             else if (str[i-1] == 'b') str[i-1] = '\b';
