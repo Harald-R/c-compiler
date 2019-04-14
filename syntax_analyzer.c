@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include "syntax_analyzer.h"
-#include "domain_analyzer.h"
+#include "symbol_table.h"
 
 token *consumed_token;
 

@@ -1,5 +1,5 @@
-#ifndef _H_DOMAIN_ANALYZER
-#define _H_DOMAIN_ANALYZER
+#ifndef _H_SYMBOL_TABLE
+#define _H_SYMBOL_TABLE
 
 #include "common.h"
 

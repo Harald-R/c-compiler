@@ -3,7 +3,7 @@
 #include <sys/stat.h>
 #include "lexical_analyzer.h"
 #include "syntax_analyzer.h"
-#include "domain_analyzer.h"
+#include "symbol_table.h"
 
 int main(int argc, char *argv[])
 {
