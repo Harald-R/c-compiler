@@ -879,6 +879,3 @@ int get_next_token()
     }
 }
 
-void generate_tokens()
-{
-}
