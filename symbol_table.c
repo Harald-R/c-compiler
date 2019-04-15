@@ -96,6 +96,9 @@ void delete_symbols_after(symbols_t *symbols, symbol_t *start)
     // Check if symbol is in table
     while (i < n && symbols->begin[i] != start) ++i;
     if (i == n) return;
+    
+    // Move to first element after the given one
+    ++i;
 
     // Delete elements found after the given symbol
     for (; n > i; --n) {
