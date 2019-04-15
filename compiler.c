@@ -57,7 +57,7 @@ int main(int argc, char *argv[])
     }
 
     // Print symbol table
-    printf("Symbol table:\n");
+    printf("\nSymbol table:\n");
     print_symbol_table(&symbols);
 
     return 0;

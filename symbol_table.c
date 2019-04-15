@@ -112,15 +112,6 @@ void print_symbol_table(symbols_t *symbols)
         const char *str_cls;
         const char *str_mem;
 
-        switch ((*s)->type.type_base) {
-            case TB_INT:    str_type = "INT"; break;
-            case TB_DOUBLE: str_type = "DOUBLE"; break;
-            case TB_CHAR:   str_type = "CHAR"; break;
-            case TB_STRUCT: str_type = "STRUCT"; break;
-            case TB_VOID:   str_type = "VOID"; break;
-            default:        str_type = "UNKNOWN"; break;
-        }
-
         switch ((*s)->cls) {
             case CLS_VAR:     str_cls = "VAR"; break;
             case CLS_FUNC:    str_cls = "FUNC"; break;
@@ -128,12 +119,29 @@ void print_symbol_table(symbols_t *symbols)
             case CLS_STRUCT:  str_cls = "STRUCT"; break;
             default:          str_cls = "UNKNOWN"; break;
         }
-        
-        switch ((*s)->mem) {
-            case MEM_LOCAL:  str_mem = "LOCAL"; break;
-            case MEM_ARG:    str_mem = "ARG"; break;
-            case MEM_GLOBAL: str_mem = "GLOBAL"; break;
-            default:         str_mem = "UNKNOWN"; break;
+
+        if ((*s)->cls != CLS_STRUCT) {
+            switch ((*s)->type.type_base) {
+                case TB_INT:    str_type = "INT"; break;
+                case TB_DOUBLE: str_type = "DOUBLE"; break;
+                case TB_CHAR:   str_type = "CHAR"; break;
+                case TB_STRUCT: str_type = "STRUCT"; break;
+                case TB_VOID:   str_type = "VOID"; break;
+                default:        str_type = "UNKNOWN"; break;
+            }
+        } else {
+            str_type = "SYMBOL";
+        }
+
+        if ((*s)->cls == CLS_VAR) {
+            switch ((*s)->mem) {
+                case MEM_LOCAL:  str_mem = "LOCAL"; break;
+                case MEM_ARG:    str_mem = "ARG"; break;
+                case MEM_GLOBAL: str_mem = "GLOBAL"; break;
+                default:         str_mem = "UNKNOWN"; break;
+            }
+        } else  {
+            str_mem = "SYMBOL";
         }
 
         printf("%s, TYPE_%s, CLS_%s, MEM_%s\n", (*s)->name, str_type, str_cls, str_mem);
