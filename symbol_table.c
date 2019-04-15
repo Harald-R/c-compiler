@@ -9,6 +9,12 @@ int current_depth;
 symbol_t *current_struct;
 symbol_t *current_func;
 
+void init_symbol_table(symbols_t *symbols)
+{
+    // Initialize the symbol table by adding the default symbols
+    add_ext_funcs(symbols);
+}
+
 void init_symbols(symbols_t *symbols)
 {
     symbols->begin = NULL;
@@ -88,6 +94,56 @@ void add_var(token_t *token, type_t *type)
     s->type = *type;
 }
 
+symbol_t *add_ext_func(symbols_t *symbols, const char *name, type_t type)
+{
+    symbol_t *s = add_symbol(symbols, name, CLS_EXTFUNC);
+    s->type = type;
+    init_symbols(&s->args);
+
+    return s;
+}
+
+symbol_t *add_func_arg(symbol_t *func, const char *name, type_t type)
+{
+    symbol_t *arg = add_symbol(&func->args, name, CLS_VAR);
+    arg->type = type;
+
+    return arg;
+}
+
+void add_ext_funcs(symbols_t *symbols)
+{
+    symbol_t *s;
+
+    // put_s / get_s - string
+    s = add_ext_func(symbols, "put_s", create_type(TB_VOID, -1));
+    add_func_arg(s, "s", create_type(TB_CHAR, 0));
+
+    s = add_ext_func(symbols, "get_s", create_type(TB_VOID, -1));
+    add_func_arg(s, "s", create_type(TB_CHAR, 0));
+
+    // put_i / get_i - integer
+    s = add_ext_func(symbols, "put_i", create_type(TB_VOID, -1));
+    add_func_arg(s, "i", create_type(TB_INT, -1));
+
+    add_ext_func(symbols, "get_i", create_type(TB_INT, -1));
+
+    // put_d / get_d - double
+    s = add_ext_func(symbols, "put_d", create_type(TB_VOID, -1));
+    add_func_arg(s, "d", create_type(TB_DOUBLE, -1));
+
+    add_ext_func(symbols, "get_d", create_type(TB_DOUBLE, -1));
+
+    // put_c /get_c - char
+    s = add_ext_func(symbols, "put_c", create_type(TB_VOID, -1));
+    add_func_arg(s, "c", create_type(TB_CHAR, -1));
+
+    add_ext_func(symbols, "get_c", create_type(TB_CHAR, -1));
+
+    // Number of seconds
+    add_ext_func(symbols, "seconds", create_type(TB_DOUBLE, -1));
+}
+
 void delete_symbols_after(symbols_t *symbols, symbol_t *start)
 {
     int i = 0;
@@ -150,3 +206,13 @@ void print_symbol_table(symbols_t *symbols)
         printf("%s, TYPE_%s, CLS_%s, MEM_%s\n", (*s)->name, str_type, str_cls, str_mem);
     }
 }
+
+type_t create_type(int type_base, int num_elem)
+{
+    type_t t;
+    t.type_base = type_base;
+    t.num_elem = num_elem;
+
+    return t;
+}
+

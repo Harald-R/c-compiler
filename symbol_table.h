@@ -63,13 +63,21 @@ extern int current_depth;
 extern symbol_t *current_struct;
 extern symbol_t *current_func;
 
+void init_symbol_table(symbols_t *symbols);
+
 void init_symbols(symbols_t *symbols);
 symbol_t *add_symbol(symbols_t *symbols, const char *name, int cls);
 symbol_t *find_symbol(symbols_t *symbols, const char *name);
+
+void add_ext_funcs(symbols_t *symbols);
+symbol_t *add_ext_func(symbols_t *symbols, const char *name, type_t type);
+symbol_t *add_func_arg(symbol_t *func, const char *name, type_t type);
 
 void add_var(token_t *token_name, type_t *type);
 void delete_symbols_after(symbols_t *symbols, symbol_t *start);
 
 void print_symbol_table();
+
+type_t create_type(int type_base, int num_elem);
 
 #endif

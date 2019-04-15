@@ -49,6 +49,7 @@ int main(int argc, char *argv[])
     // Analyze syntax and generate symbol table
     current_token = tokens;
 
+    init_symbol_table(&symbols);
     if (analyze_syntax()) {
         printf("Syntax OK\n");
     } else {
