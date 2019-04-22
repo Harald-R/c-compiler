@@ -869,11 +869,12 @@ int exprPrimary(ret_val_t *rv)
                 rv->type = s->type;
                 rv->is_ct_val = rv->is_lval = 0;
             }
-            else {
-                if(s->cls == CLS_FUNC || s->cls == CLS_EXTFUNC)
-                    tkerr(current_token, "missing call for function %s", tk_name->text);
-            }
         }
+        else {
+            if(s->cls == CLS_FUNC || s->cls == CLS_EXTFUNC)
+                tkerr(current_token, "missing call for function %s", tk_name->text);
+        }
+
 
         return 1;
     }
