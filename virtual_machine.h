@@ -2,6 +2,7 @@
 #define _H_VIRTUAL_MACHINE
 
 #include "common.h"
+#include "symbol_table.h"
 
 #define STACK_SIZE (32*1024)
 #define GLOBAL_SIZE (32*1024)
@@ -51,6 +52,8 @@ typedef struct _instr {
 } instr_t;
 
 instr_t *instructions, *last_instruction;
+extern int offset;
+extern int size_args;
 
 void run(instr_t *ip);
 
@@ -64,7 +67,9 @@ void pushi(long int i);
 long int popi();
 
 void insert_instr_after(instr_t *after, instr_t *i);
+void add_cast_instr(instr_t *after, type_t *actual_type, type_t * needed_type);
 instr_t *create_instr(int opcode);
+instr_t *append_instr(instr_t *i);
 instr_t *add_instr(int opcode);
 instr_t *add_instr_after(instr_t *after, int opcode);
 instr_t *add_instr_A(int opcode, void *addr);

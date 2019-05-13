@@ -2,8 +2,13 @@
 #include "syntax_analyzer.h"
 #include "symbol_table.h"
 #include "type_analysis.h"
+#include "virtual_machine.h"
+#include "code_generation.h"
 
 token_t *consumed_token;
+instr_t *crt_loop_end;
+int offset = 0;
+int size_args = 0;
 
 int analyze_syntax()
 {
@@ -25,13 +30,78 @@ int consume(int code)
 
 int unit()
 {
+    instr_t *label_main = add_instr(O_CALL);
+    add_instr(O_HALT);
+
     while (declStruct() || declFunc() || declVar());
+    label_main->args[0].addr = require_symbol(&symbols, "main")->addr;
+
     if (consume(END)) {
         return 1;
     }
     else tkerr(current_token, "invalid expression");
 
     return 0;
+}
+
+instr_t *get_rval(ret_val_t *rv)
+{
+    if (rv->is_lval) {
+        switch (rv->type.type_base) {
+            case TB_INT:
+            case TB_DOUBLE:
+            case TB_CHAR:
+            case TB_STRUCT:
+                add_instr_I(O_LOAD, type_arg_size(&rv->type));
+                break;
+            default: tkerr(current_token, "unhandled type: %d", rv->type.type_base);
+        }
+    }
+    return last_instruction;
+}
+
+void add_cast_addr(instr_t * after, type_t *actual_type, type_t *needed_type)
+{
+    if (actual_type->num_elem >= 0 || needed_type->num_elem >= 0) return;
+
+    switch (actual_type->type_base) {
+        case TB_CHAR:
+            switch (needed_type->type_base) {
+                case TB_CHAR:   break;
+                case TB_INT:    add_instr_after(after, O_CAST_C_I); break;
+                case TB_DOUBLE: add_instr_after(after, O_CAST_C_D); break;
+            }
+            break;
+        case TB_INT:
+            switch (needed_type->type_base) {
+                case TB_CHAR:   add_instr_after(after, O_CAST_I_C); break;
+                case TB_INT:    break;
+                case TB_DOUBLE: add_instr_after(after, O_CAST_I_D); break;
+            }
+            break;
+        case TB_DOUBLE:
+            switch (needed_type->type_base) {
+                case TB_CHAR:   add_instr_after(after, O_CAST_D_C); break;
+                case TB_INT:    add_instr_after(after, O_CAST_D_I); break;
+                case TB_DOUBLE: break;
+            }
+            break;
+    }
+}
+
+instr_t *create_cond_jump(ret_val_t *rv)
+{
+    if (rv->type.num_elem >= 0) { // arrays
+        return add_instr(O_JF_A);
+    } else {                      // non-arrays
+        get_rval(rv);
+        switch (rv->type.type_base) {
+            case TB_CHAR:   return add_instr(O_JF_C);
+            case TB_DOUBLE: return add_instr(O_JF_D);
+            case TB_INT:    return add_instr(O_JF_I);
+            default: return NULL;
+        }
+    }
 }
 
 int declStruct()
@@ -44,6 +114,8 @@ int declStruct()
             symbol_token = consumed_token;
 
             if (consume(LACC)) {
+                offset = 0;
+
                 // Add struct symbol to the symbol table
                 if (find_symbol(&symbols, symbol_token->text)) {
                     tkerr(current_token, "symbol redefinition: %s", symbol_token->text);
@@ -75,6 +147,7 @@ int declFunc()
     token_t *start_token = current_token;
     token_t *symbol_token;
     type_t t;
+    symbol_t **ps;
     int is_decl_func = 0;
     int has_void_return_type = 0;
 
@@ -97,6 +170,7 @@ int declFunc()
     if (is_decl_func) {
         if (consume(ID)) {
             symbol_token = consumed_token;
+            size_args = offset = 0;
 
             if (consume(LPAR)) {
                 // Add function name in the symbol table 
@@ -121,7 +195,23 @@ int declFunc()
                 if (consume(RPAR)) {
                     --current_depth;
 
+                    current_func->addr = add_instr(O_ENTER);
+                    size_args = offset;
+                    // Update args offsets for correct FP indexing
+                    for (ps = symbols.begin; ps != symbols.end; ++ps) {
+                        if ((*ps)->mem == MEM_ARG) {
+                            // 2*sizeof(void*) == sizeof(retAddr) + sizeof(FP)
+                            (*ps)->offset -= size_args + 2*sizeof(void*);
+                        }
+                    }
+                    offset = 0;
+
                     if (stmCompound()) {
+                        ((instr_t *)current_func->addr)->args[0].i = offset; // setup the ENTER argument
+                        if (current_func->type.type_base == TB_VOID) {
+                            add_instr_II(O_RET, size_args, 0);
+                        }
+
                         delete_symbols_after(&symbols, current_func);
                         current_func = NULL;
 
@@ -248,9 +338,11 @@ int arrayDecl(type_t *ret)
 {
     token_t *start_token = current_token;
     ret_val_t rv;
+    instr_t *instr_before_expr;
 
     if (consume(LBRACKET)) {
         ret->num_elem = 0;
+        instr_before_expr = last_instruction;
 
         if (expr(&rv)) {
             if (!rv.is_ct_val)
@@ -259,6 +351,7 @@ int arrayDecl(type_t *ret)
                 tkerr(current_token, "the array size is not an integer");
 
             ret->num_elem = rv.ct_val.i;
+            delete_instructions_after(instr_before_expr);
         }
 
         if (consume(RBRACKET)) {
@@ -289,10 +382,14 @@ int funcArg()
             symbol_t *s = add_symbol(&symbols, symbol_token->text, CLS_VAR);
             s->mem = MEM_ARG;
             s->type = t;
+            s->offset = offset;
+            offset += type_arg_size(&s->type);
             
             s = add_symbol(&current_func->args, symbol_token->text, CLS_VAR);
             s->mem = MEM_ARG;
             s->type = t;
+            s->offset = offset;
+            offset += type_arg_size(&s->type);
 
             return 1;
         }
@@ -307,6 +404,7 @@ int stm()
 {
     token_t *start_token = current_token;
     ret_val_t rv;
+    instr_t *i, *i1, *i2, *i3, *i4, *is, *ib3, *ibs;
 
     if (stmCompound()) return 1;
     else if (consume(IF)) {
@@ -316,10 +414,15 @@ int stm()
                     tkerr(current_token, "a structure cannot be logically tested");
 
                 if (consume(RPAR)) {
+                    i1 = create_cond_jump(&rv);
                     if (stm()) {
                         if (consume(ELSE)) {
+                            i2 = add_instr(O_JMP);
                             if (stm()) { }
+                            i1->args[0].addr = i2->next;
+                            i1 = i2;
                         }
+                        i1->args[0].addr = add_instr(O_NOP);
 
                         return 1;
                     }
@@ -332,13 +435,23 @@ int stm()
         else tkerr(current_token, "missing ( after if");
     }
     else if (consume(WHILE)) {
+        instr_t *old_loop_end = crt_loop_end;
+        crt_loop_end = create_instr(O_NOP);
+        i1 = last_instruction;
+
         if (consume(LPAR)) {
             if (expr(&rv)) {
                 if (rv.type.type_base == TB_STRUCT)
                     tkerr(current_token, "a structure cannot be logically tested");
 
                 if (consume(RPAR)) {
+                    i2 = create_cond_jump(&rv);
                     if (stm()) {
+                        add_instr_A(O_JMP, i1->next);
+                        append_instr(crt_loop_end);
+                        i2->args[0].addr = crt_loop_end;
+                        crt_loop_end = old_loop_end;
+
                         return 1;
                     }
                     else tkerr(current_token, "missing while statement");
@@ -351,19 +464,51 @@ int stm()
     }
     else if (consume(FOR)) {
         ret_val_t rv1, rv2, rv3;
+        instr_t *old_loop_end = crt_loop_end;
+        crt_loop_end = create_instr(O_NOP);
 
         if (consume(LPAR)) {
-            if (expr(&rv1)) { }
+            if (expr(&rv1)) {
+                if (type_arg_size(&rv1.type)) {
+                    add_instr_I(O_DROP, type_arg_size(&rv1.type));
+                }
+            }
             if (consume(SEMICOLON)) {
+                i2 = last_instruction;
                 if (expr(&rv2)) {
+                    i4 = create_cond_jump(&rv2);
                     if(rv2.type.type_base == TB_STRUCT)
                         tkerr(current_token, "a structure cannot be logically tested");
+                } else {
+                    i4 = NULL;
                 }
 
                 if (consume(SEMICOLON)) {
-                    if (expr(&rv3)) { }
+                    ib3 = last_instruction;
+                    if (expr(&rv3)) {
+                        if (type_arg_size(&rv3.type)) {
+                            add_instr_I(O_DROP, type_arg_size(&rv3.type));
+                        }
+                    }
                     if (consume(RPAR)) {
+                        ibs = last_instruction;
                         if (stm()) {
+                            if (ib3 != ibs) {
+                                i3 = ib3->next;
+                                is = ibs->next;
+                                ib3->next = is;
+                                is->prev = ib3;
+                                last_instruction->next = i3;
+                                i3->prev = last_instruction;
+                                ibs->next = NULL;
+                                last_instruction = ibs;
+                            }
+                            add_instr_A(O_JMP, i2->next);
+                            append_instr(crt_loop_end);
+                            if (i4)
+                                i4->args[0].addr = crt_loop_end;
+                            crt_loop_end = old_loop_end;
+
                             return 1;
                         }
                         else tkerr(current_token, "missing for statement");
@@ -378,23 +523,40 @@ int stm()
     }
     else if (consume(BREAK)) {
         if (consume(SEMICOLON)) {
+            if (!crt_loop_end)
+                tkerr(current_token, "break without for or while");
+            add_instr_A(O_JMP, crt_loop_end);
+
             return 1;
         }
         else tkerr(current_token, "missing semicolon");
     }
     else if (consume(RETURN)) {
         if (expr(&rv)) {
+            i = get_rval(&rv);
+            add_cast_addr(i, &rv.type, &current_func->type);
+
             if(current_func->type.type_base == TB_VOID)
                 tkerr(current_token, "a void function cannot return a value");
             cast(&current_func->type, &rv.type);
         }
 
         if (consume(SEMICOLON)) {
+            if (current_func->type.type_base == TB_VOID) {
+                add_instr_II(O_RET, size_args, 0);
+            } else {
+                add_instr_II(O_RET, size_args, type_arg_size(&current_func->type));
+            }
+
             return 1;
         }
         else tkerr(current_token, "missing semicolon");
     }
     else if (expr(&rv)) {
+        if (type_arg_size(&rv.type)) {
+            add_instr_I(O_DROP, type_arg_size(&rv.type));
+        }
+
         if (consume(SEMICOLON)) {
             return 1;
         }
@@ -446,10 +608,18 @@ int exprAssign(ret_val_t *rv)
 {
     token_t *start_token = current_token;
     ret_val_t rve;
+    instr_t *i;
 
     if (exprUnary(rv)) {
         if (consume(ASSIGN)) {
             if (exprAssign(&rve)) {
+                i = get_rval(&rve);
+                add_cast_instr(i, &rve.type, &rv->type);
+                add_instr_II(O_INSERT,
+                        sizeof(void*) + type_arg_size(&rv->type),
+                        type_arg_size(&rv->type));
+                add_instr_I(O_STORE, type_arg_size(&rv->type)); 
+
                 if (!rv->is_lval)
                     tkerr(current_token, "cannot assign to a non-lval");
                 if (rv->type.num_elem > -1 || rve.type.num_elem > -1)
@@ -477,11 +647,31 @@ int exprOr2(ret_val_t *rv)
 {
     token_t *start_token = current_token;
     ret_val_t rve;
+    instr_t *i1, *i2;
+    type_t t, t1, t2;
 
     if (consume(OR)) {
+        i1 = rv->type.num_elem < 0 ? get_rval(rv) : last_instruction;
+        t1 = rv->type;
+
         if (exprAnd(&rve)) {
             if (rv->type.type_base == TB_STRUCT || rve.type.type_base == TB_STRUCT)
                     tkerr(current_token, "a structure cannot be logically tested");
+            if (rv->type.num_elem >= 0) {
+                add_instr(O_OR_A);
+            } else {
+                i2 = get_rval(&rve);
+                t2 = rve.type;
+                t = get_arith_type(&t1, &t2);
+                add_cast_instr(i1, &t1, &t);
+                add_cast_instr(i2, &t2, &t);
+                switch (t.type_base) {
+                    case TB_INT:    add_instr(O_OR_I); break;
+                    case TB_DOUBLE: add_instr(O_OR_D); break;
+                    case TB_CHAR:   add_instr(O_OR_C); break;
+                }
+            }
+
             rv->type = create_type(TB_INT, -1);
             rv->is_ct_val = rv->is_lval = 0;
 
@@ -514,11 +704,31 @@ int exprAnd2(ret_val_t *rv)
 {
     token_t *start_token = current_token;
     ret_val_t rve;
+    instr_t *i1, *i2;
+    type_t t, t1, t2;
 
     if (consume(AND)) {
+        i1 = rv->type.num_elem < 0 ? get_rval(rv) : last_instruction;
+        t1 = rv->type;
+
         if (exprEq(&rve)) {
             if(rv->type.type_base == TB_STRUCT || rve.type.type_base == TB_STRUCT)
                 tkerr(current_token, "a structure cannot be logically tested");
+            if (rv->type.num_elem >= 0) {
+                add_instr(O_AND_A);
+            } else {
+                i2 = get_rval(&rve);
+                t2 = rve.type;
+                t = get_arith_type(&t1, &t2);
+                add_cast_instr(i1, &t1, &t);
+                add_cast_instr(i2, &t2, &t);
+                switch (t.type_base) {
+                    case TB_INT:    add_instr(O_AND_I); break;
+                    case TB_DOUBLE: add_instr(O_AND_D); break;
+                    case TB_CHAR:   add_instr(O_AND_C); break;
+                }
+            }
+
             rv->type = create_type(TB_INT, -1);
             rv->is_ct_val = rv->is_lval = 0;
 
@@ -551,11 +761,41 @@ int exprEq2(ret_val_t *rv)
 {
     token_t *start_token = current_token;
     ret_val_t rve;
+    instr_t *i1, *i2;
+    type_t t, t1, t2;
 
     if (consume(EQUAL) || consume(NOTEQ)) {
+        token_t *tkop = consumed_token;
+        i1 = rv->type.num_elem < 0 ? get_rval(rv) : last_instruction;
+        t1 = rv->type;
+
         if (exprRel(&rve)) {
             if(rv->type.type_base == TB_STRUCT || rve.type.type_base == TB_STRUCT)
                 tkerr(current_token,"a structure cannot be compared");
+            if (rv->type.num_elem >= 0) {
+                add_instr(tkop->code == EQUAL ? O_EQ_A : O_NOTEQ_A);
+            } else {
+                i2 = get_rval(&rve);
+                t2 = rve.type;
+                t = get_arith_type(&t1, &t2);
+                add_cast_instr(i1, &t1, &t);
+                add_cast_instr(i2, &t2, &t);
+                if (tkop->code == EQUAL) {
+                    switch (t.type_base) {
+                        case TB_INT:    add_instr(O_EQ_I); break;
+                        case TB_DOUBLE: add_instr(O_EQ_D); break;
+                        case TB_CHAR:   add_instr(O_EQ_C); break;
+                    }
+                } else {
+                    switch (t.type_base) {
+                        case TB_INT:    add_instr(O_NOTEQ_I); break;
+                        case TB_DOUBLE: add_instr(O_NOTEQ_D); break;
+                        case TB_CHAR:   add_instr(O_NOTEQ_C); break;
+                    }
+
+                }
+            }
+
             rv->type = create_type(TB_INT, -1);
             rv->is_ct_val = rv->is_lval = 0;
 
@@ -588,13 +828,56 @@ int exprRel2(ret_val_t *rv)
 {
     token_t *start_token = current_token;
     ret_val_t rve;
+    instr_t *i1, *i2;
+    type_t t, t1, t2;
 
     if (consume(LESS) || consume(LESSEQ) || consume(GREATER) || consume(GREATEREQ)) {
+        token_t *tkop = consumed_token;
+        i1 = get_rval(rv);
+        t1 = rv->type;
+
         if (exprAdd(&rve)) {
             if(rv->type.num_elem > -1 || rve.type.num_elem > -1)
                 tkerr(current_token,"an array cannot be compared");
             if(rv->type.type_base == TB_STRUCT || rve.type.type_base == TB_STRUCT)
                 tkerr(current_token,"a structure cannot be compared");
+
+            i2 = get_rval(&rve);
+            t2 = rve.type;
+            t = get_arith_type(&t1, &t2);
+            add_cast_instr(i1, &t1, &t);
+            add_cast_instr(i2, &t2, &t);
+            switch (tkop->code) {
+                case LESS:
+                    switch (t.type_base) {
+                        case TB_INT:    add_instr(O_LESS_I); break;
+                        case TB_DOUBLE: add_instr(O_LESS_D); break;
+                        case TB_CHAR:   add_instr(O_LESS_C); break;
+                    }
+                    break;
+                case LESSEQ:
+                    switch (t.type_base) {
+                        case TB_INT:    add_instr(O_LESSEQ_I); break;
+                        case TB_DOUBLE: add_instr(O_LESSEQ_D); break;
+                        case TB_CHAR:   add_instr(O_LESSEQ_C); break;
+                    }
+                    break;
+                case GREATER:
+                    switch (t.type_base) {
+                        case TB_INT:    add_instr(O_GREATER_I); break;
+                        case TB_DOUBLE: add_instr(O_GREATER_D); break;
+                        case TB_CHAR:   add_instr(O_GREATER_C); break;
+                    }
+                    break;
+                case GREATEREQ:
+                    switch (t.type_base) {
+                        case TB_INT:    add_instr(O_GREATEREQ_I); break;
+                        case TB_DOUBLE: add_instr(O_GREATEREQ_D); break;
+                        case TB_CHAR:   add_instr(O_GREATEREQ_C); break;
+                    }
+                    break;
+            }
+
             rv->type = create_type(TB_INT, -1);
             rv->is_ct_val = rv->is_lval = 0;
 
@@ -627,14 +910,40 @@ int exprAdd2(ret_val_t *rv)
 {
     token_t *start_token = current_token;
     ret_val_t rve;
+    instr_t *i1, *i2;
+    type_t t, t1, t2;
 
     if (consume(ADD) || consume(SUB)) {
+        token_t *tkop = consumed_token;
+        i1 = get_rval(rv);
+        t1 = rv->type;
+
         if (exprMul(&rve)) {
             if(rv->type.num_elem > -1 || rve.type.num_elem > -1)
                 tkerr(current_token,"an array cannot be added or subtracted");
             if(rv->type.type_base == TB_STRUCT || rve.type.type_base == TB_STRUCT)
                 tkerr(current_token,"a structure cannot be added or subtracted");
             rv->type = get_arith_type(&rv->type, &rve.type);
+
+            i2 = get_rval(&rve);
+            t2 = rve.type;
+            t = get_arith_type(&t1, &t2);
+            add_cast_instr(i1, &t1, &t);
+            add_cast_instr(i2, &t2, &t);
+            if (tkop->code == ADD) {
+                switch (t.type_base) {
+                    case TB_INT:    add_instr(O_ADD_I); break;
+                    case TB_DOUBLE: add_instr(O_ADD_D); break;
+                    case TB_CHAR:   add_instr(O_ADD_C); break;
+                }
+            } else {
+                switch (t.type_base) {
+                    case TB_INT:    add_instr(O_SUB_I); break;
+                    case TB_DOUBLE: add_instr(O_SUB_D); break;
+                    case TB_CHAR:   add_instr(O_SUB_C); break;
+                }
+            }
+
             rv->is_ct_val = rv->is_lval = 0;
 
             if (exprAdd2(rv)) {
@@ -666,14 +975,40 @@ int exprMul2(ret_val_t *rv)
 {
     token_t *start_token = current_token;
     ret_val_t rve;
+    instr_t *i1, *i2;
+    type_t t, t1, t2;
 
     if (consume(MUL) || consume(DIV)) {
+        token_t *tkop = consumed_token;
+        i1 = get_rval(rv);
+        t1 = rv->type;
+
         if (exprCast(&rve)) {
             if(rv->type.num_elem > -1 || rve.type.num_elem> -1)
                     tkerr(current_token,"an array cannot be multiplied or divided");
             if(rv->type.type_base == TB_STRUCT || rve.type.type_base == TB_STRUCT)
                     tkerr(current_token,"a structure cannot be multiplied or divided");
             rv->type = get_arith_type(&rv->type,&rve.type);
+
+            i2 = get_rval(&rve);
+            t2 = rve.type;
+            t = get_arith_type(&t1, &t2);
+            add_cast_instr(i1, &t1, &t);
+            add_cast_instr(i2, &t2, &t);
+            if (tkop->code == MUL) {
+                switch (t.type_base) {
+                    case TB_INT:    add_instr(O_MUL_I); break;
+                    case TB_DOUBLE: add_instr(O_MUL_D); break;
+                    case TB_CHAR:   add_instr(O_MUL_C); break;
+                }
+            } else {
+                switch (t.type_base) {
+                    case TB_INT:    add_instr(O_DIV_I); break;
+                    case TB_DOUBLE: add_instr(O_DIV_D); break;
+                    case TB_CHAR:   add_instr(O_DIV_C); break;
+                }
+            }
+
             rv->is_ct_val = rv->is_lval = 0;
 
             if (exprMul2(rv)) {
@@ -712,6 +1047,30 @@ int exprCast(ret_val_t *rv)
             if (consume(RPAR)) {
                 if (exprCast(&rve)) {
                     cast(&t, &rve.type);
+
+                    if (rv->type.num_elem < 0 && rv->type.type_base != TB_STRUCT) {
+                        switch (rve.type.type_base) {
+                            case TB_CHAR:
+                                switch (t.type_base) {
+                                    case TB_INT:    add_instr(O_CAST_C_I); break;
+                                    case TB_DOUBLE: add_instr(O_CAST_C_D); break;
+                                }
+                                break;
+                            case TB_DOUBLE:
+                                switch (t.type_base) {
+                                    case TB_CHAR: add_instr(O_CAST_D_C); break;
+                                    case TB_INT:  add_instr(O_CAST_D_I); break;
+                                }
+                                break;
+                            case TB_INT:
+                                switch (t.type_base) {
+                                    case TB_CHAR:   add_instr(O_CAST_I_C); break;
+                                    case TB_DOUBLE: add_instr(O_CAST_I_D); break;
+                                }
+                                break;
+                        }
+                    }
+
                     rv->type = t;
                     rv->is_ct_val = rv->is_lval = 0;
 
@@ -745,9 +1104,28 @@ int exprUnary(ret_val_t *rv)
                     tkerr(current_token, "unary '-' cannot be applied to an array");
                 if (rv->type.type_base == TB_STRUCT)
                     tkerr(current_token, "unary '-' cannot be applied to a struct");
+
+                get_rval(rv);
+                switch (rv->type.type_base) {
+                    case TB_CHAR:   add_instr(O_NEG_C); break;
+                    case TB_INT:    add_instr(O_NEG_I); break;
+                    case TB_DOUBLE: add_instr(O_NEG_D); break;
+                }
             } else { // NOT
                 if(rv->type.type_base == TB_STRUCT)
                     tkerr(current_token, "'!' cannot be applied to a struct");
+
+                if (rv->type.num_elem < 0) {
+                    get_rval(rv);
+                    switch (rv->type.type_base) {
+                        case TB_CHAR:   add_instr(O_NOT_C); break;
+                        case TB_INT:    add_instr(O_NOT_I); break;
+                        case TB_DOUBLE: add_instr(O_NOT_D); break;
+                    }
+                } else {
+                    add_instr(O_NOT_A);
+                }
+
                 rv->type = create_type(TB_INT, -1);
             }
             rv->is_ct_val = rv->is_lval = 0;
@@ -782,6 +1160,14 @@ int exprPostfix2(ret_val_t *rv)
             rv->is_ct_val = 0;
 
             if (consume(RBRACKET)) {
+                add_cast_instr(last_instruction, &rve.type, &typeInt);
+                get_rval(&rve);
+                if (type_base_size(&rv->type) != 1) {
+                    add_instr_I(O_PUSHCT_I, type_base_size(&rv->type));
+                    add_instr(O_MUL_I);
+                }
+                add_instr(O_OFFSET);
+
                 if (exprPostfix2(rv)) {
                     return 1;
                 }
@@ -799,6 +1185,11 @@ int exprPostfix2(ret_val_t *rv)
             rv->type = sMember->type;
             rv->is_lval = 1;
             rv->is_ct_val = 0;
+
+            if (sMember->offset) {
+                add_instr_I(O_PUSHCT_I, sMember->offset);
+                add_instr(O_OFFSET);
+            }
 
             if (exprPostfix2(rv)) {
                 return 1;
@@ -829,6 +1220,7 @@ int exprPrimary(ret_val_t *rv)
 {
     token_t *start_token = current_token;
     ret_val_t arg;
+    instr_t *i;
 
     if (consume(ID)) {
         token_t *tk_name = consumed_token;
@@ -848,6 +1240,13 @@ int exprPrimary(ret_val_t *rv)
                 if(crtDefArg == s->args.end)
                     tkerr(current_token, "too many arguments in call");
                 cast(&(*crtDefArg)->type, &arg.type);
+
+                if ((*crtDefArg)->type.num_elem < 0) { // only arrays are passed by addr
+                    i = get_rval(&arg);
+                } else {
+                    i = last_instruction;
+                }
+
                 crtDefArg++;
 
                 while (1) {
@@ -856,6 +1255,14 @@ int exprPrimary(ret_val_t *rv)
                             if(crtDefArg == s->args.end)
                                 tkerr(current_token, "too many arguments in call");
                             cast(&(*crtDefArg)->type, &arg.type);
+
+                            if ((*crtDefArg)->type.num_elem < 0) {
+                                i = get_rval(&arg);
+                            } else {
+                                i = last_instruction;
+                            }
+                            add_cast_instr(i, &arg.type, &(*crtDefArg)->type);
+
                             crtDefArg++;
                         }
                         else tkerr(current_token, "missing expression after ,");
@@ -864,14 +1271,25 @@ int exprPrimary(ret_val_t *rv)
             }
 
             if (consume(RPAR)) {
-                if(crtDefArg != s->args.end)
+                // Function call
+                i = add_instr(s->cls == CLS_FUNC ? O_CALL : O_CALLEXT);
+                i->args[0].addr = s->addr; // ?
+
+                if (crtDefArg != s->args.end)
                     tkerr(current_token, "too few arguments in call");
                 rv->type = s->type;
                 rv->is_ct_val = rv->is_lval = 0;
             }
         }
         else {
-            if(s->cls == CLS_FUNC || s->cls == CLS_EXTFUNC)
+            // Variable
+            if (s->depth) {
+                add_instr_I(O_PUSHFPADDR, s->offset);
+            } else {
+                add_instr_A(O_PUSHCT_A, s->addr);
+            }
+
+            if (s->cls == CLS_FUNC || s->cls == CLS_EXTFUNC)
                 tkerr(current_token, "missing call for function %s", tk_name->text);
         }
 
@@ -885,6 +1303,8 @@ int exprPrimary(ret_val_t *rv)
         rv->ct_val.i = tki->i;
         rv->is_ct_val = 1;
         rv->is_lval = 0;
+
+        add_instr_I(O_PUSHCT_I, tki->i);
         return 1;
     }
     else if (consume(CT_REAL)) {
@@ -894,6 +1314,9 @@ int exprPrimary(ret_val_t *rv)
         rv->ct_val.d = tkr->r;
         rv->is_ct_val = 1;
         rv->is_lval = 0;
+ 
+        i = add_instr(O_PUSHCT_D);
+        i->args[0].d = tkr->r;
         return 1;
     }
     else if (consume(CT_CHAR)) {
@@ -903,6 +1326,8 @@ int exprPrimary(ret_val_t *rv)
         rv->ct_val.i = tkc->i;
         rv->is_ct_val = 1;
         rv->is_lval = 0;
+ 
+        add_instr_I(O_PUSHCT_C, tkc->i);
         return 1;
     }
     else if (consume(CT_STRING)) {
@@ -912,6 +1337,8 @@ int exprPrimary(ret_val_t *rv)
         rv->ct_val.str = tks->text;
         rv->is_ct_val = 1;
         rv->is_lval = 0;
+ 
+        add_instr_A(O_PUSHCT_A, tks->text);
         return 1;
     }
     else if (consume(LPAR)) {
@@ -925,4 +1352,6 @@ int exprPrimary(ret_val_t *rv)
     current_token = start_token;
     return 0;
 }
+
+
 

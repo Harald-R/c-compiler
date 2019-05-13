@@ -26,12 +26,11 @@ void mvTest()
     add_instr_I(O_LOAD,sizeof(long int));
     add_instr_A(O_JT_I,L1);
     add_instr(O_HALT);
-    //run(L1);
 }
 
 int main(int argc, char *argv[])
 {
-    const char *file_path = "tests/1.c";
+    const char *file_path = "tests/2.c";
     if (argc > 1) {
         file_path = argv[1];
     }
@@ -86,9 +85,8 @@ int main(int argc, char *argv[])
     print_symbol_table(&symbols);
 
     printf("\nmvTest:\n");
-    mvTest();
+    //mvTest();
     run(instructions);
-
 
     return 0;
 }

@@ -595,7 +595,7 @@ void run(instr_t *IP)
                 i1 = IP->args[0].i;
                 if (SP - (sizeof(void*) + i1) < stack)
                     err("not enough stack bytes for SET");
-                a1 = *(void**)(SP - ((sizeof(void*) + i1)));
+                a1 = *(void**)(SP - (sizeof(void*) + i1));
                 printf("STORE\t%ld\t(%p)\n", i1, a1);
                 memcpy(a1, SP-i1, i1);
                 SP -= sizeof(void*) + i1;
@@ -704,11 +704,55 @@ long int popi()
     return *(long int*)SP;
 }
 
+
+void add_cast_instr(instr_t *after, type_t *actual_type, type_t * needed_type)
+{
+    switch (actual_type->type_base) {
+        case TB_CHAR:
+            switch (needed_type->type_base) {
+                case TB_INT:    add_instr_after(after, O_CAST_C_I); break;
+                case TB_DOUBLE: add_instr_after(after, O_CAST_C_D); break;
+            }
+            break;
+        case TB_INT:
+            switch (needed_type->type_base) {
+                case TB_CHAR:   add_instr_after(after, O_CAST_I_C); break;
+                case TB_DOUBLE: add_instr_after(after, O_CAST_I_D); break;
+            }
+            break;
+        case TB_DOUBLE:
+            switch (needed_type->type_base) {
+                case TB_CHAR: add_instr_after(after, O_CAST_D_C); break;
+                case TB_INT:  add_instr_after(after, O_CAST_D_I); break;
+            }
+            break;
+    }
+}
+
 instr_t *create_instr(int opcode)
 {
     instr_t *i;
     SAFEALLOC(i, instr_t)
     i->opcode = opcode;
+    return i;
+}
+
+instr_t *append_instr(instr_t *i)
+{
+    if (instructions == NULL) {
+        i->prev = NULL;
+        i->next = NULL;
+        instructions = i;
+        last_instruction = instructions;
+
+        return i;
+    }
+
+    i->prev = last_instruction;
+    i->next = NULL;
+    last_instruction->next = i;
+    last_instruction = i;
+
     return i;
 }
 

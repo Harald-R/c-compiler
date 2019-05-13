@@ -1,5 +1,6 @@
 #include "symbol_table.h"
 #include "virtual_machine.h"
+#include "code_generation.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -109,6 +110,13 @@ void add_var(token_t *token, type_t *type)
     }
     
     s->type = *type;
+
+    if (current_struct || current_func) {
+        s->offset = offset;
+    } else {
+        s->addr = alloc_global(type_full_size(&s->type));
+    }
+    offset += type_full_size(&s->type);
 }
 
 symbol_t *add_ext_func(symbols_t *symbols, const char *name, type_t type, void *addr)
