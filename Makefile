@@ -2,8 +2,8 @@ CC = gcc
 CCOPT = -Wall -Wextra
 
 APP ?= compiler
-C_SOURCES = compiler.c common.c lexical_analyzer.c syntax_analyzer.c symbol_table.c type_analysis.c
-C_HEADERS = common.h lexical_analyzer.h syntax_analyzer.h symbol_table.h type_analysis.h
+C_SOURCES = compiler.c common.c lexical_analyzer.c syntax_analyzer.c symbol_table.c type_analysis.c virtual_machine.c
+C_HEADERS = common.h lexical_analyzer.h syntax_analyzer.h symbol_table.h type_analysis.h virtual_machine.h
 
 .DEFAULT_GOAL: all
 

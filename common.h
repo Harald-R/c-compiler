@@ -1,6 +1,8 @@
 #ifndef _H_COMMON
 #define _H_COMMON
 
+#include <stdlib.h>
+
 #define SAFEALLOC(var,type) if((var = (type*)malloc(sizeof(type))) == NULL) err("Not enough memory");
 
 enum {ID = 100,

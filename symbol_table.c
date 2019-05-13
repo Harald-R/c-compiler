@@ -1,4 +1,5 @@
 #include "symbol_table.h"
+#include "virtual_machine.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -65,6 +66,22 @@ symbol_t *find_symbol(symbols_t *symbols, const char *name)
     return NULL;
 }
 
+symbol_t *require_symbol(symbols_t *symbols, const char *name)
+{
+    symbol_t *s;
+    int n = symbols->end - symbols->begin;
+    
+    for (int i = n-1; i >= 0; --i) {
+        s = symbols->begin[i];
+        if (strcmp(s->name, name) == 0)
+            return s;
+    }
+
+    err("missing required symbol %s", name);
+    return NULL;
+}
+
+
 void add_var(token_t *token, type_t *type)
 {
     symbol_t *s;
@@ -94,10 +111,11 @@ void add_var(token_t *token, type_t *type)
     s->type = *type;
 }
 
-symbol_t *add_ext_func(symbols_t *symbols, const char *name, type_t type)
+symbol_t *add_ext_func(symbols_t *symbols, const char *name, type_t type, void *addr)
 {
     symbol_t *s = add_symbol(symbols, name, CLS_EXTFUNC);
     s->type = type;
+    s->addr = addr;
     init_symbols(&s->args);
 
     return s;
@@ -116,32 +134,32 @@ void add_ext_funcs(symbols_t *symbols)
     symbol_t *s;
 
     // put_s / get_s - string
-    s = add_ext_func(symbols, "put_s", create_type(TB_VOID, -1));
+    s = add_ext_func(symbols, "put_s", create_type(TB_VOID, -1), put_s);
     add_func_arg(s, "s", create_type(TB_CHAR, 0));
 
-    s = add_ext_func(symbols, "get_s", create_type(TB_VOID, -1));
+    s = add_ext_func(symbols, "get_s", create_type(TB_VOID, -1), get_s);
     add_func_arg(s, "s", create_type(TB_CHAR, 0));
 
     // put_i / get_i - integer
-    s = add_ext_func(symbols, "put_i", create_type(TB_VOID, -1));
+    s = add_ext_func(symbols, "put_i", create_type(TB_VOID, -1), put_i);
     add_func_arg(s, "i", create_type(TB_INT, -1));
 
-    add_ext_func(symbols, "get_i", create_type(TB_INT, -1));
+    add_ext_func(symbols, "get_i", create_type(TB_INT, -1), get_i);
 
     // put_d / get_d - double
-    s = add_ext_func(symbols, "put_d", create_type(TB_VOID, -1));
+    s = add_ext_func(symbols, "put_d", create_type(TB_VOID, -1), put_d);
     add_func_arg(s, "d", create_type(TB_DOUBLE, -1));
 
-    add_ext_func(symbols, "get_d", create_type(TB_DOUBLE, -1));
+    add_ext_func(symbols, "get_d", create_type(TB_DOUBLE, -1), get_d);
 
     // put_c /get_c - char
-    s = add_ext_func(symbols, "put_c", create_type(TB_VOID, -1));
+    s = add_ext_func(symbols, "put_c", create_type(TB_VOID, -1), put_c);
     add_func_arg(s, "c", create_type(TB_CHAR, -1));
 
-    add_ext_func(symbols, "get_c", create_type(TB_CHAR, -1));
+    add_ext_func(symbols, "get_c", create_type(TB_CHAR, -1), get_c);
 
     // Number of seconds
-    add_ext_func(symbols, "seconds", create_type(TB_DOUBLE, -1));
+    add_ext_func(symbols, "seconds", create_type(TB_DOUBLE, -1), seconds);
 }
 
 void delete_symbols_after(symbols_t *symbols, symbol_t *start)

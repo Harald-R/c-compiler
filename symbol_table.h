@@ -56,6 +56,11 @@ struct _symbol {
         symbols_t args;    // used only for functions
         symbols_t members; // used only for structs
     };
+
+    union {
+        void *addr;   // vm: the memory address of global symbols
+        int offset;   // vm: the stack offset for local symbols
+    };
 };
 
 extern symbols_t symbols;
@@ -68,9 +73,10 @@ void init_symbol_table(symbols_t *symbols);
 void init_symbols(symbols_t *symbols);
 symbol_t *add_symbol(symbols_t *symbols, const char *name, int cls);
 symbol_t *find_symbol(symbols_t *symbols, const char *name);
+symbol_t *require_symbol(symbols_t *symbols, const char *name);
 
 void add_ext_funcs(symbols_t *symbols);
-symbol_t *add_ext_func(symbols_t *symbols, const char *name, type_t type);
+symbol_t *add_ext_func(symbols_t *symbols, const char *name, type_t type, void *addr);
 symbol_t *add_func_arg(symbol_t *func, const char *name, type_t type);
 
 void add_var(token_t *token_name, type_t *type);
