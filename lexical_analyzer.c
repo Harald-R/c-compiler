@@ -775,7 +775,7 @@ int get_next_token()
 
             case CT_CHAR:
                 tk = add_token(CT_CHAR);
-                tk->text = create_string(p_start_ch+1, p_crt_ch-1);
+                tk->i = *(p_start_ch+1);
                 return tk->code;
 
             case CT_STRING:

@@ -60,35 +60,6 @@ instr_t *get_rval(ret_val_t *rv)
     return last_instruction;
 }
 
-void add_cast_addr(instr_t * after, type_t *actual_type, type_t *needed_type)
-{
-    if (actual_type->num_elem >= 0 || needed_type->num_elem >= 0) return;
-
-    switch (actual_type->type_base) {
-        case TB_CHAR:
-            switch (needed_type->type_base) {
-                case TB_CHAR:   break;
-                case TB_INT:    add_instr_after(after, O_CAST_C_I); break;
-                case TB_DOUBLE: add_instr_after(after, O_CAST_C_D); break;
-            }
-            break;
-        case TB_INT:
-            switch (needed_type->type_base) {
-                case TB_CHAR:   add_instr_after(after, O_CAST_I_C); break;
-                case TB_INT:    break;
-                case TB_DOUBLE: add_instr_after(after, O_CAST_I_D); break;
-            }
-            break;
-        case TB_DOUBLE:
-            switch (needed_type->type_base) {
-                case TB_CHAR:   add_instr_after(after, O_CAST_D_C); break;
-                case TB_INT:    add_instr_after(after, O_CAST_D_I); break;
-                case TB_DOUBLE: break;
-            }
-            break;
-    }
-}
-
 instr_t *create_cond_jump(ret_val_t *rv)
 {
     if (rv->type.num_elem >= 0) { // arrays
@@ -108,6 +79,7 @@ int declStruct()
 {
     token_t *start_token = current_token;
     token_t *symbol_token;
+    instr_t *old_last_instr = last_instruction;
 
     if (consume(STRUCT)) {
         if (consume(ID)) {
@@ -119,7 +91,7 @@ int declStruct()
                 // Add struct symbol to the symbol table
                 if (find_symbol(&symbols, symbol_token->text)) {
                     tkerr(current_token, "symbol redefinition: %s", symbol_token->text);
-                }
+               }
                 current_struct = add_symbol(&symbols, symbol_token->text, CLS_STRUCT);
                 init_symbols(&current_struct->members);
 
@@ -138,6 +110,7 @@ int declStruct()
         else tkerr(current_token, "missing id after struct");
     }
 
+    delete_instructions_after(old_last_instr);
     current_token = start_token;
     return 0;
 }
@@ -150,6 +123,7 @@ int declFunc()
     symbol_t **ps;
     int is_decl_func = 0;
     int has_void_return_type = 0;
+    instr_t *old_last_instr = last_instruction;
 
     if (typeBase(&t)) {
         if (consume(MUL)) {
@@ -212,7 +186,6 @@ int declFunc()
                             add_instr_II(O_RET, size_args, 0);
                         }
 
-                        delete_symbols_after(&symbols, current_func);
                         current_func = NULL;
 
                         return 1;
@@ -227,6 +200,7 @@ int declFunc()
         }
     }
 
+    delete_instructions_after(old_last_instr);
     current_token = start_token;
     return 0;
 }
@@ -237,6 +211,7 @@ int declVar()
     token_t *symbol_token;
     type_t t;
     int is_decl_var = 0;
+    instr_t *old_last_instr = last_instruction;
 
     if (typeBase(&t)) {
         if (consume(ID)) {
@@ -277,6 +252,7 @@ int declVar()
         }
     }
 
+    delete_instructions_after(old_last_instr);
     current_token = start_token;
     return 0;
 }
@@ -284,6 +260,7 @@ int declVar()
 int typeBase(type_t *ret)
 {
     token_t *start_token = current_token;
+    instr_t *old_last_instr = last_instruction;
 
     if (consume(INT)) {
         ret->type_base = TB_INT;
@@ -312,6 +289,7 @@ int typeBase(type_t *ret)
         else tkerr(current_token, "missing id after struct");
     }
 
+    delete_instructions_after(old_last_instr);
     current_token = start_token;
     return 0;
 }
@@ -319,6 +297,7 @@ int typeBase(type_t *ret)
 int typeName(type_t *ret)
 {
     token_t *start_token = current_token;
+    instr_t *old_last_instr = last_instruction;
 
     if (typeBase(ret)) {
         if (arrayDecl(ret)) { }
@@ -329,6 +308,7 @@ int typeName(type_t *ret)
         return 1;
     }
 
+    delete_instructions_after(old_last_instr);
     current_token = start_token;
     return 0;
 
@@ -339,6 +319,7 @@ int arrayDecl(type_t *ret)
     token_t *start_token = current_token;
     ret_val_t rv;
     instr_t *instr_before_expr;
+    instr_t *old_last_instr = last_instruction;
 
     if (consume(LBRACKET)) {
         ret->num_elem = 0;
@@ -360,6 +341,7 @@ int arrayDecl(type_t *ret)
         else tkerr(current_token, "missing ]");
     }
 
+    delete_instructions_after(old_last_instr);
     current_token = start_token;
     return 0;
 }
@@ -369,6 +351,7 @@ int funcArg()
     token_t *start_token = current_token;
     token_t *symbol_token;
     type_t t;
+    instr_t *old_last_instr = last_instruction;
 
     if (typeBase(&t)) {
         if (consume(ID)) {
@@ -383,7 +366,6 @@ int funcArg()
             s->mem = MEM_ARG;
             s->type = t;
             s->offset = offset;
-            offset += type_arg_size(&s->type);
             
             s = add_symbol(&current_func->args, symbol_token->text, CLS_VAR);
             s->mem = MEM_ARG;
@@ -396,6 +378,7 @@ int funcArg()
         else tkerr(current_token, "missing argument identifier");
     }
 
+    delete_instructions_after(old_last_instr);
     current_token = start_token;
     return 0;
 }
@@ -405,6 +388,7 @@ int stm()
     token_t *start_token = current_token;
     ret_val_t rv;
     instr_t *i, *i1, *i2, *i3, *i4, *is, *ib3, *ibs;
+    instr_t *old_last_instr = last_instruction;
 
     if (stmCompound()) return 1;
     else if (consume(IF)) {
@@ -534,7 +518,7 @@ int stm()
     else if (consume(RETURN)) {
         if (expr(&rv)) {
             i = get_rval(&rv);
-            add_cast_addr(i, &rv.type, &current_func->type);
+            add_cast_instr(i, &rv.type, &current_func->type);
 
             if(current_func->type.type_base == TB_VOID)
                 tkerr(current_token, "a void function cannot return a value");
@@ -566,6 +550,7 @@ int stm()
         return 1;
     }
 
+    delete_instructions_after(old_last_instr);
     current_token = start_token;
     return 0;
 }
@@ -574,6 +559,7 @@ int stmCompound()
 {
     token_t *start_token = current_token;
     symbol_t *start = symbols.end[-1];
+    instr_t *old_last_instr = last_instruction;
 
     if (consume(LACC)) {
         ++current_depth;
@@ -588,6 +574,7 @@ int stmCompound()
         else tkerr(current_token, "expected }");
     }
 
+    delete_instructions_after(old_last_instr);
     current_token = start_token;
     return 0;
 }
@@ -595,11 +582,13 @@ int stmCompound()
 int expr(ret_val_t *rv)
 {
     token_t *start_token = current_token;
+    instr_t *old_last_instr = last_instruction;
 
     if (exprAssign(rv)) {
         return 1;
     }
 
+    delete_instructions_after(old_last_instr);
     current_token = start_token;
     return 0;
 }
@@ -608,24 +597,27 @@ int exprAssign(ret_val_t *rv)
 {
     token_t *start_token = current_token;
     ret_val_t rve;
-    instr_t *i;
+    instr_t *i, *old_last_instr = last_instruction;
 
     if (exprUnary(rv)) {
         if (consume(ASSIGN)) {
             if (exprAssign(&rve)) {
-                i = get_rval(&rve);
-                add_cast_instr(i, &rve.type, &rv->type);
-                add_instr_II(O_INSERT,
-                        sizeof(void*) + type_arg_size(&rv->type),
-                        type_arg_size(&rv->type));
-                add_instr_I(O_STORE, type_arg_size(&rv->type)); 
-
                 if (!rv->is_lval)
                     tkerr(current_token, "cannot assign to a non-lval");
                 if (rv->type.num_elem > -1 || rve.type.num_elem > -1)
                     tkerr(current_token, "the arrays cannot be assigned");
 
                 cast(&rv->type, &rve.type);
+
+                i = get_rval(&rve);
+                add_cast_instr(i, &rve.type, &rv->type);
+
+                // Duplicate the value on top before the destination address
+                add_instr_II(O_INSERT,
+                        sizeof(void*) + type_arg_size(&rv->type),
+                        type_arg_size(&rv->type));
+                add_instr_I(O_STORE, type_arg_size(&rv->type)); 
+                
                 rv->is_ct_val = rv->is_lval = 0;
 
                 return 1;
@@ -634,11 +626,13 @@ int exprAssign(ret_val_t *rv)
         }
     }
 
+    delete_instructions_after(old_last_instr);
     current_token = start_token;
     if (exprOr(rv)) {
         return 1;
     }
 
+    delete_instructions_after(old_last_instr);
     current_token = start_token;
     return 0;
 }
@@ -649,6 +643,7 @@ int exprOr2(ret_val_t *rv)
     ret_val_t rve;
     instr_t *i1, *i2;
     type_t t, t1, t2;
+    instr_t *old_last_instr = last_instruction;
 
     if (consume(OR)) {
         i1 = rv->type.num_elem < 0 ? get_rval(rv) : last_instruction;
@@ -682,6 +677,7 @@ int exprOr2(ret_val_t *rv)
         else tkerr(current_token, "missing expression after ||");
     }
 
+    delete_instructions_after(old_last_instr);
     current_token = start_token;
     return 1;
 }
@@ -689,6 +685,7 @@ int exprOr2(ret_val_t *rv)
 int exprOr(ret_val_t *rv)
 {
     token_t *start_token = current_token;
+    instr_t *old_last_instr = last_instruction;
 
     if (exprAnd(rv)) {
         if (exprOr2(rv)) {
@@ -696,6 +693,7 @@ int exprOr(ret_val_t *rv)
         }
     }
 
+    delete_instructions_after(old_last_instr);
     current_token = start_token;
     return 0;
 }
@@ -706,6 +704,7 @@ int exprAnd2(ret_val_t *rv)
     ret_val_t rve;
     instr_t *i1, *i2;
     type_t t, t1, t2;
+    instr_t *old_last_instr = last_instruction;
 
     if (consume(AND)) {
         i1 = rv->type.num_elem < 0 ? get_rval(rv) : last_instruction;
@@ -739,6 +738,7 @@ int exprAnd2(ret_val_t *rv)
         else tkerr(current_token, "missing expression after &&");
     }
 
+    delete_instructions_after(old_last_instr);
     current_token = start_token;
     return 1;
 }
@@ -746,6 +746,7 @@ int exprAnd2(ret_val_t *rv)
 int exprAnd(ret_val_t *rv)
 {
     token_t *start_token = current_token;
+    instr_t *old_last_instr = last_instruction;
 
     if (exprEq(rv)) {
         if (exprAnd2(rv)) {
@@ -753,6 +754,7 @@ int exprAnd(ret_val_t *rv)
         }
     }
 
+    delete_instructions_after(old_last_instr);
     current_token = start_token;
     return 0;
 }
@@ -763,6 +765,7 @@ int exprEq2(ret_val_t *rv)
     ret_val_t rve;
     instr_t *i1, *i2;
     type_t t, t1, t2;
+    instr_t *old_last_instr = last_instruction;
 
     if (consume(EQUAL) || consume(NOTEQ)) {
         token_t *tkop = consumed_token;
@@ -806,6 +809,7 @@ int exprEq2(ret_val_t *rv)
         else tkerr(current_token, "missing expression after equality comparison");
     }
 
+    delete_instructions_after(old_last_instr);
     current_token = start_token;
     return 1;
 }
@@ -813,6 +817,7 @@ int exprEq2(ret_val_t *rv)
 int exprEq(ret_val_t *rv)
 {
     token_t *start_token = current_token;
+    instr_t *old_last_instr = last_instruction;
 
     if (exprRel(rv)) {
         if (exprEq2(rv)) {
@@ -820,6 +825,7 @@ int exprEq(ret_val_t *rv)
         }
     }
 
+    delete_instructions_after(old_last_instr);
     current_token = start_token;
     return 0;
 }
@@ -830,6 +836,7 @@ int exprRel2(ret_val_t *rv)
     ret_val_t rve;
     instr_t *i1, *i2;
     type_t t, t1, t2;
+    instr_t *old_last_instr = last_instruction;
 
     if (consume(LESS) || consume(LESSEQ) || consume(GREATER) || consume(GREATEREQ)) {
         token_t *tkop = consumed_token;
@@ -888,6 +895,7 @@ int exprRel2(ret_val_t *rv)
         else tkerr(current_token, "missing expression after comparison");
     }
 
+    delete_instructions_after(old_last_instr);
     current_token = start_token;
     return 1;
 }
@@ -895,6 +903,7 @@ int exprRel2(ret_val_t *rv)
 int exprRel(ret_val_t *rv)
 {
     token_t *start_token = current_token;
+    instr_t *old_last_instr = last_instruction;
 
     if (exprAdd(rv)) {
         if (exprRel2(rv)) {
@@ -902,6 +911,7 @@ int exprRel(ret_val_t *rv)
         }
     }
 
+    delete_instructions_after(old_last_instr);
     current_token = start_token;
     return 0;
 }
@@ -912,6 +922,7 @@ int exprAdd2(ret_val_t *rv)
     ret_val_t rve;
     instr_t *i1, *i2;
     type_t t, t1, t2;
+    instr_t *old_last_instr = last_instruction;
 
     if (consume(ADD) || consume(SUB)) {
         token_t *tkop = consumed_token;
@@ -953,6 +964,7 @@ int exprAdd2(ret_val_t *rv)
         else tkerr(current_token, "expected right operand");
     }
 
+    delete_instructions_after(old_last_instr);
     current_token = start_token;
     return 1;
 }
@@ -960,6 +972,7 @@ int exprAdd2(ret_val_t *rv)
 int exprAdd(ret_val_t *rv)
 {
     token_t *start_token = current_token;
+    instr_t *old_last_instr = last_instruction;
 
     if (exprMul(rv)) {
         if (exprAdd2(rv)) {
@@ -967,6 +980,7 @@ int exprAdd(ret_val_t *rv)
         }
     }
 
+    delete_instructions_after(old_last_instr);
     current_token = start_token;
     return 0;
 }
@@ -977,6 +991,7 @@ int exprMul2(ret_val_t *rv)
     ret_val_t rve;
     instr_t *i1, *i2;
     type_t t, t1, t2;
+    instr_t *old_last_instr = last_instruction;
 
     if (consume(MUL) || consume(DIV)) {
         token_t *tkop = consumed_token;
@@ -1018,6 +1033,7 @@ int exprMul2(ret_val_t *rv)
         else tkerr(current_token, "expected right operand");
     }
 
+    delete_instructions_after(old_last_instr);
     current_token = start_token;
     return 1;
 }
@@ -1025,6 +1041,7 @@ int exprMul2(ret_val_t *rv)
 int exprMul(ret_val_t *rv)
 {
     token_t *start_token = current_token;
+    instr_t *old_last_instr = last_instruction;
 
     if (exprCast(rv)) {
         if (exprMul2(rv)) {
@@ -1032,6 +1049,7 @@ int exprMul(ret_val_t *rv)
         }
     }
 
+    delete_instructions_after(old_last_instr);
     current_token = start_token;
     return 0;
 }
@@ -1041,6 +1059,7 @@ int exprCast(ret_val_t *rv)
     token_t *start_token = current_token;
     type_t t;
     ret_val_t rve;
+    instr_t *old_last_instr = last_instruction;
 
     if (consume(LPAR)) {
         if (typeName(&t)) {
@@ -1082,11 +1101,13 @@ int exprCast(ret_val_t *rv)
         }
         else tkerr(current_token, "expected type name after (");
     }
-    
+
+    delete_instructions_after(old_last_instr);
     if (exprUnary(rv)) {
         return 1;
     }
 
+    delete_instructions_after(old_last_instr);
     current_token = start_token;
     return 0;
 }
@@ -1094,6 +1115,7 @@ int exprCast(ret_val_t *rv)
 int exprUnary(ret_val_t *rv)
 {
     token_t *start_token = current_token;
+    instr_t *old_last_instr = last_instruction;
 
     if (consume(SUB) || consume(NOT)) {
         token_t *tkop = consumed_token;
@@ -1139,6 +1161,7 @@ int exprUnary(ret_val_t *rv)
         return 1;
     }
 
+    delete_instructions_after(old_last_instr);
     current_token = start_token;
     return 0;
 }
@@ -1147,20 +1170,21 @@ int exprPostfix2(ret_val_t *rv)
 {
     token_t *start_token = current_token;
     ret_val_t rve;
+    instr_t *old_last_instr = last_instruction;
 
     if (consume(LBRACKET)) {
         if (expr(&rve)) {
             if(rv->type.num_elem < 0)
                 tkerr(current_token, "only an array can be indexed");
-            type_t typeInt = create_type(TB_INT, -1);
-            cast(&typeInt, &rve.type);
+            type_t type_int = create_type(TB_INT, -1);
+            cast(&type_int, &rve.type);
             rv->type = rv->type;
             rv->type.num_elem = -1;
             rv->is_lval = 1;
             rv->is_ct_val = 0;
 
             if (consume(RBRACKET)) {
-                add_cast_instr(last_instruction, &rve.type, &typeInt);
+                add_cast_instr(last_instruction, &rve.type, &type_int);
                 get_rval(&rve);
                 if (type_base_size(&rv->type) != 1) {
                     add_instr_I(O_PUSHCT_I, type_base_size(&rv->type));
@@ -1198,6 +1222,7 @@ int exprPostfix2(ret_val_t *rv)
         else tkerr(current_token, "missing identifier after .");
     }
 
+    delete_instructions_after(old_last_instr);
     current_token = start_token;
     return 1;
 }
@@ -1205,6 +1230,7 @@ int exprPostfix2(ret_val_t *rv)
 int exprPostfix(ret_val_t *rv)
 {
     token_t *start_token = current_token;
+    instr_t *old_last_instr = last_instruction;
 
     if (exprPrimary(rv)) {
         if (exprPostfix2(rv)) {
@@ -1212,6 +1238,7 @@ int exprPostfix(ret_val_t *rv)
         }
     }
 
+    delete_instructions_after(old_last_instr);
     current_token = start_token;
     return 0;
 }
@@ -1221,6 +1248,7 @@ int exprPrimary(ret_val_t *rv)
     token_t *start_token = current_token;
     ret_val_t arg;
     instr_t *i;
+    instr_t *old_last_instr = last_instruction;
 
     if (consume(ID)) {
         token_t *tk_name = consumed_token;
@@ -1232,38 +1260,39 @@ int exprPrimary(ret_val_t *rv)
         rv->is_lval = 1;
 
         if (consume(LPAR)) {
-            symbol_t **crtDefArg = s->args.begin;
+            symbol_t **crt_def_arg = s->args.begin;
             if(s->cls != CLS_FUNC && s->cls != CLS_EXTFUNC)
                 tkerr(current_token, "call of the non-function %s", tk_name->text);
 
             if (expr(&arg)) {
-                if(crtDefArg == s->args.end)
+                if(crt_def_arg == s->args.end)
                     tkerr(current_token, "too many arguments in call");
-                cast(&(*crtDefArg)->type, &arg.type);
+                cast(&(*crt_def_arg)->type, &arg.type);
 
-                if ((*crtDefArg)->type.num_elem < 0) { // only arrays are passed by addr
+                if ((*crt_def_arg)->type.num_elem < 0) { // only arrays are passed by addr
                     i = get_rval(&arg);
                 } else {
                     i = last_instruction;
                 }
+                add_cast_instr(i, &arg.type, &(*crt_def_arg)->type);
 
-                crtDefArg++;
+                crt_def_arg++;
 
                 while (1) {
                     if (consume(COMMA)) {
                         if (expr(&arg)) {
-                            if(crtDefArg == s->args.end)
+                            if(crt_def_arg == s->args.end)
                                 tkerr(current_token, "too many arguments in call");
-                            cast(&(*crtDefArg)->type, &arg.type);
+                            cast(&(*crt_def_arg)->type, &arg.type);
 
-                            if ((*crtDefArg)->type.num_elem < 0) {
+                            if ((*crt_def_arg)->type.num_elem < 0) {
                                 i = get_rval(&arg);
                             } else {
                                 i = last_instruction;
                             }
-                            add_cast_instr(i, &arg.type, &(*crtDefArg)->type);
+                            add_cast_instr(i, &arg.type, &(*crt_def_arg)->type);
 
-                            crtDefArg++;
+                            crt_def_arg++;
                         }
                         else tkerr(current_token, "missing expression after ,");
                     } else break;
@@ -1273,9 +1302,9 @@ int exprPrimary(ret_val_t *rv)
             if (consume(RPAR)) {
                 // Function call
                 i = add_instr(s->cls == CLS_FUNC ? O_CALL : O_CALLEXT);
-                i->args[0].addr = s->addr; // ?
+                i->args[0].addr = s->addr;
 
-                if (crtDefArg != s->args.end)
+                if (crt_def_arg != s->args.end)
                     tkerr(current_token, "too few arguments in call");
                 rv->type = s->type;
                 rv->is_ct_val = rv->is_lval = 0;
@@ -1349,9 +1378,8 @@ int exprPrimary(ret_val_t *rv)
         }
     }
 
+    delete_instructions_after(old_last_instr);
     current_token = start_token;
     return 0;
 }
-
-
 

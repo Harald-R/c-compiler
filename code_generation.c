@@ -30,3 +30,4 @@ int type_arg_size(type_t *type)
     if (type->num_elem >= 0) return sizeof(void*);
     return type_base_size(type);
 }
+

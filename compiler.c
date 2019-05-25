@@ -84,8 +84,7 @@ int main(int argc, char *argv[])
     printf("\nSymbol table:\n");
     print_symbol_table(&symbols);
 
-    printf("\nmvTest:\n");
-    //mvTest();
+    printf("\n");
     run(instructions);
 
     return 0;

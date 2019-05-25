@@ -9,6 +9,7 @@ char *stack_after; // first byte after stack
 
 char globals[GLOBAL_SIZE];
 int num_globals;
+instr_t *instructions, *last_instruction;
 
 void run(instr_t *IP)
 {
@@ -26,56 +27,56 @@ void run(instr_t *IP)
 
         switch (IP->opcode) {
             case O_ADD_C:
-                c1 = popc();
                 c2 = popc();
+                c1 = popc();
                 printf("ADD_C\t(%c+%c -> %c)\n", c1, c2, c1+c2);
                 pushd(c1+c2);
                 IP = IP->next;
                 break;
 
             case O_ADD_D:
-                d1 = popd();
                 d2 = popd();
+                d1 = popd();
                 printf("ADD_D\t(%g+%g -> %g)\n", d1, d2, d1+d2);
                 pushd(d1+d2);
                 IP = IP->next;
                 break;
 
             case O_ADD_I:
-                i1 = popi();
                 i2 = popi();
+                i1 = popi();
                 printf("ADD_I\t(%li+%li -> %li)\n", i1, i2, i1+i2);
                 pushi(i1+i2);
                 IP = IP->next;
                 break;
 
             case O_AND_A:
-                a1 = popa();
                 a2 = popa();
+                a1 = popa();
                 printf("AND_A\t(%p AND %p -> %d)\n", a1, a2, a1&&a2);
                 pushi(a1&&a2);
                 IP = IP->next;
                 break;
 
             case O_AND_C:
-                c1 = popc();
                 c2 = popc();
+                c1 = popc();
                 printf("AND_C\t(%c AND %c -> %d)\n", c1, c2, c1&&c2);
                 pushi(c1&&c2);
                 IP = IP->next;
                 break;
 
             case O_AND_D:
-                d1 = popd();
                 d2 = popd();
+                d1 = popd();
                 printf("AND_D\t(%g AND %g -> %d)\n", d1, d2, d1&&d2);
                 pushi(d1&&d2);
                 IP = IP->next;
                 break;
 
             case O_AND_I:
-                i1 = popi();
                 i2 = popi();
+                i1 = popi();
                 printf("AND_I\t(%ld AND %ld -> %d)\n", i1, i2, i1&&i2);
                 pushi(i1&&i2);
                 IP = IP->next;
@@ -106,7 +107,7 @@ void run(instr_t *IP)
                 c1 = popc();
                 i1 = (long int)c1;
                 printf("CAST_C_I\t(%c -> %ld)\n", c1, i1);
-                pushi(d1);
+                pushi(i1);
                 IP = IP->next;
                 break;
 
@@ -143,24 +144,24 @@ void run(instr_t *IP)
                 break;
 
             case O_DIV_C:
-                c1 = popc();
                 c2 = popc();
+                c1 = popc();
                 printf("DIV_C\t(%c/%c -> %c)\n", c1, c2, c1/c2);
                 pushc(c1/c2);
                 IP = IP->next;
                 break;
 
             case O_DIV_D:
-                d1 = popd();
                 d2 = popd();
+                d1 = popd();
                 printf("DIV_D\t(%g/%g -> %g)\n", d1, d2, d1/d2);
                 pushd(d1/d2);
                 IP = IP->next;
                 break;
 
             case O_DIV_I:
-                i1 = popi();
                 i2 = popi();
+                i1 = popi();
                 printf("DIV_I\t(%ld/%ld -> %ld)\n", i1, i2, i1/i2);
                 pushi(i1/i2);
                 IP = IP->next;
@@ -185,80 +186,80 @@ void run(instr_t *IP)
                 break;
 
             case O_EQ_A:
-                a1 = popa();
                 a2 = popa();
+                a1 = popa();
                 printf("EQ_A\t(%p==%p -> %d)\n", a1, a2, a1==a2);
                 pushi(a1==a2);
                 IP = IP->next;
                 break;
 
             case O_EQ_C:
-                c1 = popc();
                 c2 = popc();
+                c1 = popc();
                 printf("EQ_C\t(%c==%c -> %d)\n", c1, c2, c1==c2);
                 pushi(c1==c2);
                 IP = IP->next;
                 break;
 
             case O_EQ_D:
-                d1 = popd();
                 d2 = popd();
+                d1 = popd();
                 printf("EQ_D\t(%g==%g -> %d)\n", d1, d2, d1==d2);
                 pushi(d1==d2);
                 IP = IP->next;
                 break;
 
             case O_EQ_I:
-                i1 = popi();
                 i2 = popi();
+                i1 = popi();
                 printf("EQ_I\t(%ld==%ld -> %d)\n", i1, i2, i1==i2);
                 pushi(i1==i2);
                 IP = IP->next;
                 break;
 
             case O_GREATER_C:
-                c1 = popc();
                 c2 = popc();
+                c1 = popc();
                 printf("GREATER_C\t(%c>%c -> %d)\n", c1, c2, c1>c2);
                 pushi(c1>c2);
                 IP = IP->next;
                 break;
 
             case O_GREATER_D:
-                d1 = popd();
                 d2 = popd();
+                d1 = popd();
                 printf("GREATER_D\t(%g>%g -> %d)\n", d1, d2, d1>d2);
                 pushi(d1>d2);
                 IP = IP->next;
                 break;
 
             case O_GREATER_I:
-                i1 = popi();
                 i2 = popi();
+                i1 = popi();
                 printf("GREATER_I\t(%ld>%ld -> %d)\n", i1, i2, i1>i2);
                 pushi(i1>i2);
                 IP = IP->next;
                 break;
 
             case O_GREATEREQ_C:
-                c1 = popc();
                 c2 = popc();
+                c1 = popc();
                 printf("GREATEREQ_C\t(%c>=%c -> %d)\n", c1, c2, c1>=c2);
                 pushi(c1>=c2);
                 IP = IP->next;
                 break;
 
             case O_GREATEREQ_D:
-                d1 = popd();
                 d2 = popd();
+                d1 = popd();
                 printf("GREATEREQ_D\t(%g>=%g -> %d)\n", d1, d2, d1>=d2);
                 pushi(d1>=d2);
                 IP = IP->next;
                 break;
 
             case O_GREATEREQ_I:
-                i1 = popi();
                 i2 = popi();
+                i1 = popi();
                 printf("GREATEREQ_I\t(%ld>=%ld -> %d)\n", i1, i2, i1>=i2);
                 pushi(i1>=i2);
                 IP = IP->next;
@@ -269,13 +270,13 @@ void run(instr_t *IP)
                 return;
 
             case O_INSERT:
-                i1 = IP->args[0].i; // iDst
-                i2 = IP->args[1].i; // nBytes
+                i1 = IP->args[0].i;           // Destination address
+                i2 = IP->args[1].i;           // Number of bytes
                 printf("INSERT\t%ld,%ld\n", i1, i2);
                 if(SP+i2 > stack_after)
                     err("out of stack");
-                memmove(SP-i1+i2, SP-i1, i1); // make room
-                memmove(SP-i1, SP+i2, i2);    // dup
+                memmove(SP-i1+i2, SP-i1, i1); // Make room
+                memmove(SP-i1, SP+i2, i2);    // Dup
                 SP += i2;
                 IP = IP->next;
                 break;
@@ -334,48 +335,48 @@ void run(instr_t *IP)
                 break;
             
             case O_LESS_C:
-                c1 = popc();
                 c2 = popc();
+                c1 = popc();
                 printf("LESS_C\t(%c<%c -> %d)\n", c1, c2, c1<c2);
                 pushi(c1<c2);
                 IP = IP->next;
                 break;
 
             case O_LESS_D:
-                d1 = popd();
                 d2 = popd();
+                d1 = popd();
                 printf("LESS_D\t(%g<%g -> %d)\n", d1, d2, d1<d2);
                 pushi(d1<d2);
                 IP = IP->next;
                 break;
 
             case O_LESS_I:
-                i1 = popi();
                 i2 = popi();
+                i1 = popi();
                 printf("LESS_I\t(%ld<%ld -> %d)\n", i1, i2, i1<i2);
                 pushi(i1<i2);
                 IP = IP->next;
                 break;
 
             case O_LESSEQ_C:
-                c1 = popc();
                 c2 = popc();
+                c1 = popc();
                 printf("LESSEQ_C\t(%c<=%c -> %d)\n", c1, c2, c1<=c2);
                 pushi(c1<=c2);
                 IP = IP->next;
                 break;
 
             case O_LESSEQ_D:
-                d1 = popd();
                 d2 = popd();
+                d1 = popd();
                 printf("LESSEQ_D\t(%g<=%g -> %d)\n", d1, d2, d1<=d2);
                 pushi(d1<=d2);
                 IP = IP->next;
                 break;
 
             case O_LESSEQ_I:
-                i1 = popi();
                 i2 = popi();
+                i1 = popi();
                 printf("LESSEQ_I\t(%ld<=%ld -> %d)\n", i1, i2, i1<=i2);
                 pushi(i1<=i2);
                 IP = IP->next;
@@ -393,24 +394,24 @@ void run(instr_t *IP)
                 break;
 
             case O_MUL_C:
-                c1 = popc();
                 c2 = popc();
+                c1 = popc();
                 printf("MUL_C\t(%c/%c -> %c)\n", c1, c2, c1*c2);
                 pushc(c1*c2);
                 IP = IP->next;
                 break;
 
             case O_MUL_D:
-                d1 = popd();
                 d2 = popd();
+                d1 = popd();
                 printf("MUL_D\t(%g/%g -> %g)\n", d1, d2, d1*d2);
                 pushd(d1*d2);
                 IP = IP->next;
                 break;
 
             case O_MUL_I:
-                i1 = popi();
                 i2 = popi();
+                i1 = popi();
                 printf("MUL_I\t(%ld/%ld -> %ld)\n", i1, i2, i1*i2);
                 pushi(i1*i2);
                 IP = IP->next;
@@ -470,32 +471,32 @@ void run(instr_t *IP)
                 break;
 
             case O_NOTEQ_A:
-                a1 = popa();
                 a2 = popa();
+                a1 = popa();
                 printf("NOTEQ_A\t(%p==%p -> %d)\n", a1, a2, a1!=a2);
                 pushi(a1!=a2);
                 IP = IP->next;
                 break;
 
             case O_NOTEQ_C:
-                c1 = popc();
                 c2 = popc();
+                c1 = popc();
                 printf("NOTEQ_C\t(%c==%c -> %d)\n", c1, c2, c1!=c2);
                 pushi(c1!=c2);
                 IP = IP->next;
                 break;
 
             case O_NOTEQ_D:
-                d1 = popd();
                 d2 = popd();
+                d1 = popd();
                 printf("NOTEQ_D\t(%g==%g -> %d)\n", d1, d2, d1!=d2);
                 pushi(d1!=d2);
                 IP = IP->next;
                 break;
 
             case O_NOTEQ_I:
-                i1 = popi();
                 i2 = popi();
+                i1 = popi();
                 printf("NOTEQ_I\t(%ld==%ld -> %d)\n", i1, i2, i1!=i2);
                 pushi(i1!=i2);
                 IP = IP->next;
@@ -510,32 +511,32 @@ void run(instr_t *IP)
                 break;
 
             case O_OR_A:
-                a1 = popa();
                 a2 = popa();
+                a1 = popa();
                 printf("OR_A\t(%p OR %p -> %d)\n", a1, a2, a1||a2);
                 pushi(a1||a2);
                 IP = IP->next;
                 break;
 
             case O_OR_C:
-                c1 = popc();
                 c2 = popc();
+                c1 = popc();
                 printf("OR_C\t(%c OR %c -> %d)\n", c1, c2, c1||c2);
                 pushi(c1||c2);
                 IP = IP->next;
                 break;
 
             case O_OR_D:
-                d1 = popd();
                 d2 = popd();
+                d1 = popd();
                 printf("OR_D\t(%g OR %g -> %d)\n", d1, d2, d1||d2);
                 pushi(d1||d2);
                 IP = IP->next;
                 break;
 
             case O_OR_I:
-                i1 = popi();
                 i2 = popi();
+                i1 = popi();
                 printf("OR_I\t(%ld OR %ld -> %d)\n", i1, i2, i1||i2);
                 pushi(i1||i2);
                 IP = IP->next;
@@ -565,7 +566,7 @@ void run(instr_t *IP)
             case O_PUSHCT_D:
                 d1 = IP->args[0].d;
                 printf("PUSHCT_D\t%f\n", d1);
-                pushi(d1);
+                pushd(d1);
                 IP = IP->next;
                 break;
 
@@ -603,24 +604,24 @@ void run(instr_t *IP)
                 break;
 
             case O_SUB_C:
-                c1 = popc();
                 c2 = popc();
+                c1 = popc();
                 printf("SUB_C\t(%c-%c -> %c)\n", c2, c1, c2-c1);
                 pushc(c2-c1);
                 IP = IP->next;
                 break;
 
             case O_SUB_D:
-                d1 = popd();
                 d2 = popd();
+                d1 = popd();
                 printf("SUB_D\t(%g-%g -> %g)\n", d2, d1, d2-d1);
                 pushd(d2-d1);
                 IP = IP->next;
                 break;
 
             case O_SUB_I:
-                i1 = popi();
                 i2 = popi();
+                i1 = popi();
                 printf("SUB_I\t(%ld-%ld -> %ld)\n", i2, i1, i2-i1);
                 pushi(i2-i1);
                 IP = IP->next;
@@ -663,7 +664,7 @@ char popc()
 {
     SP -= sizeof(char);
     if (SP < stack)
-        err("not enough stack bytes for popd");
+        err("not enough stack bytes for popc");
 
     return *(char*)SP;
 }
@@ -699,17 +700,19 @@ long int popi()
 {
     SP -= sizeof(long int);
     if (SP < stack)
-        err("not enough stack bytes for popd");
+        err("not enough stack bytes for popi");
 
     return *(long int*)SP;
 }
 
-
-void add_cast_instr(instr_t *after, type_t *actual_type, type_t * needed_type)
+void add_cast_instr(instr_t *after, type_t *actual_type, type_t *needed_type)
 {
+    if (actual_type->num_elem >= 0 || needed_type->num_elem >= 0) return;
+
     switch (actual_type->type_base) {
         case TB_CHAR:
             switch (needed_type->type_base) {
+                case TB_CHAR:   break;
                 case TB_INT:    add_instr_after(after, O_CAST_C_I); break;
                 case TB_DOUBLE: add_instr_after(after, O_CAST_C_D); break;
             }
@@ -717,13 +720,15 @@ void add_cast_instr(instr_t *after, type_t *actual_type, type_t * needed_type)
         case TB_INT:
             switch (needed_type->type_base) {
                 case TB_CHAR:   add_instr_after(after, O_CAST_I_C); break;
+                case TB_INT:    break;
                 case TB_DOUBLE: add_instr_after(after, O_CAST_I_D); break;
             }
             break;
         case TB_DOUBLE:
             switch (needed_type->type_base) {
-                case TB_CHAR: add_instr_after(after, O_CAST_D_C); break;
-                case TB_INT:  add_instr_after(after, O_CAST_D_I); break;
+                case TB_CHAR:   add_instr_after(after, O_CAST_D_C); break;
+                case TB_INT:    add_instr_after(after, O_CAST_D_I); break;
+                case TB_DOUBLE: break;
             }
             break;
     }
@@ -784,7 +789,7 @@ instr_t *add_instr(int opcode)
 instr_t *add_instr_after(instr_t *after, int opcode)
 {
     instr_t *i = create_instr(opcode);
-    insert_instr_after(after ,i);
+    insert_instr_after(after, i);
     return i;
 }
 
@@ -819,11 +824,7 @@ void delete_instructions_after(instr_t *start)
 
     while(i) {
         instr_t *crt_i = i;
-
-        i->prev->next = i->next;
-        i->next->prev = i->prev;
         i = i->next;
-
         free(crt_i);
     }
 
