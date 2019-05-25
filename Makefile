@@ -2,8 +2,12 @@ CC = gcc
 CCOPT = -Wall -Wextra
 
 APP ?= compiler
-C_SOURCES = compiler.c common.c lexical_analyzer.c syntax_analyzer.c symbol_table.c type_analysis.c virtual_machine.c code_generation.c
-C_HEADERS = common.h lexical_analyzer.h syntax_analyzer.h symbol_table.h type_analysis.h virtual_machine.h code_generation.h
+
+INC_DIR = include
+SRC_DIR = src
+
+C_HEADERS := $(shell find $(INC_DIR) -name '*.h')
+C_SOURCES := $(shell find $(SRC_DIR) -name '*.c')
 
 .DEFAULT_GOAL: all
 
@@ -11,7 +15,7 @@ C_HEADERS = common.h lexical_analyzer.h syntax_analyzer.h symbol_table.h type_an
 all: $(APP)
 
 $(APP): $(C_SOURCES) $(C_HEADERS) Makefile
-	$(CC) $(CCOPT) -o $@ $(C_SOURCES)
+	$(CC) $(CCOPT) -I $(INC_DIR) -o $@ $(C_SOURCES)
 
 .PHONY: run
 run: $(APP)
