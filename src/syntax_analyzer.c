@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include "syntax_analyzer.h"
 #include "symbol_table.h"
 #include "type_analysis.h"

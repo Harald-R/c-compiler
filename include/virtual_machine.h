@@ -32,9 +32,9 @@ enum {
     O_NOP,
     O_NOT_A, O_NOT_C, O_NOT_D, O_NOT_I,
     O_NOTEQ_A, O_NOTEQ_C, O_NOTEQ_D, O_NOTEQ_I,
-    O_OFFSET,
+    O_OFFSET, O_OFFSET_I,
     O_OR_A, O_OR_C, O_OR_D, O_OR_I,
-    O_PUSHFPADDR,
+    O_PUSHFPADDR, O_PUSHFP_I,
     O_PUSHCT_A, O_PUSHCT_C, O_PUSHCT_D, O_PUSHCT_I,
     O_RET,
     O_STORE,
@@ -55,7 +55,7 @@ extern instr_t *instructions, *last_instruction;
 extern int offset;
 extern int size_args;
 
-void run(instr_t *ip);
+unsigned int run(instr_t *ip);
 
 void pusha(void *a);
 void *popa();

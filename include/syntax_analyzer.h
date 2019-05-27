@@ -3,12 +3,6 @@
 
 #include "common.h"
 
-#if 0
-#define DEBUG_PRINTF(...) printf(__VA_ARGS__);
-#else
-#define DEBUG_PRINTF(...)
-#endif
-
 #define ERR_MISSING_STMT(x) "missing " #x " statement"
 #define ERR_MISSING_LPAR(x) "missing ( after " #x
 #define ERR_MISSING_RPAR "missing )"

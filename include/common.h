@@ -2,8 +2,15 @@
 #define _H_COMMON
 
 #include <stdlib.h>
+#include <stdio.h>
 
 #define SAFEALLOC(var,type) if((var = (type*)malloc(sizeof(type))) == NULL) err("Not enough memory");
+
+#if 0
+#define DEBUG_PRINTF(...) printf(__VA_ARGS__);
+#else
+#define DEBUG_PRINTF(...)
+#endif
 
 enum {ID = 100,
       BREAK,

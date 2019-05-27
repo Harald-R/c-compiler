@@ -1,10 +1,18 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/stat.h>
+#include <time.h>
 #include "lexical_analyzer.h"
 #include "syntax_analyzer.h"
 #include "symbol_table.h"
 #include "virtual_machine.h"
+#include "optimization.h"
+
+double timer()
+{
+    return (double)clock() / (double)CLOCKS_PER_SEC;
+}
 
 void mvTest()
 {
@@ -30,9 +38,15 @@ void mvTest()
 
 int main(int argc, char *argv[])
 {
-    const char *file_path = "tests/2.c";
+    const char *file_path = "tests/10.c";
     if (argc > 1) {
         file_path = argv[1];
+    }
+
+    unsigned int optimize_code = 0;
+    if (argc > 2) {
+        if (strcmp(argv[2], "-O") == 0)
+            optimize_code = 1;
     }
 
     struct stat stat_buf;
@@ -84,8 +98,19 @@ int main(int argc, char *argv[])
     printf("\nSymbol table:\n");
     print_symbol_table(&symbols);
 
-    printf("\n");
-    run(instructions);
+    // Optimize code if option enabled
+    if (optimize_code)
+        optimize();
+
+    // Run code generator
+    double t1, t2;
+    unsigned int executed_instr = 0;
+
+    t1 = timer();
+    executed_instr = run(instructions);
+    t2 = timer();
+
+    printf("\nTime unopt: %g sec (%d executed instruction)\n", t2-t1, executed_instr);
 
     return 0;
 }
